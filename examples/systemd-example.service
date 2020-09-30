@@ -1,0 +1,16 @@
+[Unit]
+Description = Nath Discord Bot
+After = network.target
+
+[Service]
+WorkingDirectory=/home/pi/discBot/
+ExecStart=python3 -u bot.py
+Restart=always
+StandardOutput=file:/home/pi/discBot/out.txt
+StandardError=file:/home/pi/discBot/err.txt
+SyslogIdentifier=disc_bot
+User=pi
+Group=pi
+
+[Install]
+WantedBy=multi-user.target
