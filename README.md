@@ -3,6 +3,7 @@ The discord bot that Natherul made with the help from www.soronline.us
 
 
 Note that this is only for selfhosting the bot and it will be run as a python script. It comes with two files:
+
 bot.py              <- The actual bot that you will be running.
 soronline.py        <- This is used to grab the current state of ingame, the bot runs this periodically.
 
