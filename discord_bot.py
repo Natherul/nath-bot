@@ -3,10 +3,11 @@ import discord
 import asyncio
 from discord.utils import get
 import soronline
+from discord import commands
 
 TOKEN = '' #TOKEN GOES HERE
 description = '''Naths Discord Bot'''
-bot = discord.Client()  #commands.Bot(command_prefix='|', description=description)
+bot = commands.Bot(command_prefix='|', description=description)
 bot.currentZones = ""
 bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pass', 'Stonewatch']
 bot.cities = ['Inevitable City', 'Altdorf']
@@ -14,6 +15,7 @@ bot.started = False
 bot.announceChannel = #ANNOUNCE CHANNEL ID GOES HERE
 bot.logChannel = #LOG CHANNEL ID GOES HERE
 bot.guild = #GUILD ID GOSE HERE
+bot.settings = {}
 
 @bot.event
 async def on_ready():
@@ -27,7 +29,23 @@ async def on_ready():
         f = open('result.txt', 'r')
         bot.currentZones = f.read()
         f.close()
+        s = open('settings.txt', 'r')
+        bot.settings = s.read()
+        s.close()
         await my_background_task(bot)
+
+@bot.event
+async def on_guild_join(guild):
+    if guild.id not in bot.settings:
+        settings = { 'announceChannel' : 0, 'logChannel' : 0, 'fortPing': 0, 'cityPing' : 0  }
+        bot.settings[guild.id] = settings
+        newguild = open('settings.txt', 'w')
+        newguild.write(bot.settings)
+        newguild.close()
+
+@bot.command()
+async def setAnnounceChannel(message):
+    sdsds
 
 
 @bot.event
