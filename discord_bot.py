@@ -66,7 +66,10 @@ async def my_background_task(self):
     while not self.is_closed():
         print(str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")) + " scraping")
         openzones = soronline.scrape()
-        if bot.currentZones == "" and openzones != "":
+        if openzones == "No data updates, Most likely a game update." and bot.currentZones != openzones:
+            bot.currentZones = openzones
+            await channel.send("SoROnline is not serving data. Will post again once its reporting again.")
+        elif bot.currentZones == "" and openzones != "":
             bot.currentZones = openzones
         elif openzones != "" and bot.currentZones != openzones:
             print(str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")) + " sent " + str(openzones) + " to channel")

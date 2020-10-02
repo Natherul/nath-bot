@@ -22,6 +22,8 @@ def scrape():
         for city in data['cities']:
             openzones.append(city['name'])
 
+    if "servmsg" in data:
+        openzones.append(data['servmsg'])
 
     string = str(openzones)
     string = string.replace("[", "")
