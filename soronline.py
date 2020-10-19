@@ -9,16 +9,20 @@ def scrape():
     data = json.loads(x[0]['data'])
     
     openzones = []
+    shouldWrite = False
     
     if "keeps" in data:
+        shouldWrite = True
         for keep in data['keeps']:
             openzones.append(keep['name'])
     
     if "forts" in data:
+        shouldWrite = True
         for fort in data['forts']:
             openzones.append(fort['name'])
     
     if "cities" in data:
+        shouldWrite = True
         for city in data['cities']:
             openzones.append(city['name'])
 
@@ -29,7 +33,8 @@ def scrape():
     string = string.replace("[", "")
     string = string.replace("]", "")
     string = string.replace("'", "")
-    f = open("result.txt", "w")
-    f.write(string)
-    f.close()
+    if shouldWrite == True:
+        f = open("result.txt", "w")
+        f.write(string)
+        f.close()
     return string

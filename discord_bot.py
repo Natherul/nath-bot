@@ -2,18 +2,24 @@ from datetime import datetime
 import discord
 import asyncio
 from discord.utils import get
+#from discord.ext import commands
 import soronline
+from discord import File
 
-TOKEN = '' #TOKEN GOES HERE
+TOKEN = '' 
 description = '''Naths Discord Bot'''
 bot = discord.Client()  #commands.Bot(command_prefix='|', description=description)
 bot.currentZones = ""
 bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pass', 'Stonewatch']
 bot.cities = ['Inevitable City', 'Altdorf']
 bot.started = False
-bot.announceChannel = #ANNOUNCE CHANNEL ID GOES HERE
-bot.logChannel = #LOG CHANNEL ID GOES HERE
-bot.guild = #GUILD ID GOSE HERE
+bot.announceChannel = 
+bot.logChannel = 
+bot.guild = 
+bot.spammalus = 0
+bot.prefix = "|"
+bot.welcome = ""
+bot.boardingChannel = 
 
 @bot.event
 async def on_ready():
@@ -29,11 +35,19 @@ async def on_ready():
         f.close()
         await my_background_task(bot)
 
+#@bot.command()
+#async def RoR(ctx):
+#    """Gets the current status of RoR"""
+#    await ctx.send("world")
 
 @bot.event
 async def on_message(message):
     if "discord link" in message.content:
         await message.channel.send("The link to this discord is: ")
+    elif bot.prefix + "fortstat" in message.content:
+        await message.channel.send("Current gathered stats for forts", file=File('fortstat.csv'))
+    elif bot.prefix + "citystat" in message.content:
+        await message.channel.send("Current gathered stats for cities", file=File('citystat.csv'))
     elif "Direct Message" in str(message.channel) and message.author != bot.user:
         guild = bot.get_guild(bot.guild)
         if "Remove FortPing" in message.content:
@@ -59,21 +73,30 @@ async def on_message(message):
         else:
             await message.author.send(content = "The only commands I recognize is currently: \n Remove FortPing \n Remove CityPing \n Add FortPing \n Add CityPing")
 
+async def on_member_join(member):
+    await bot.get_channel(bot.boardingChannel).send(bot.welcome)
 
 async def my_background_task(self):
     await self.wait_until_ready()
-    channel = self.get_channel(bot.announceChannel) 
+    channel = self.get_channel(bot.announceChannel) # channel ID goes here
     while not self.is_closed():
         print(str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")) + " scraping")
         openzones = soronline.scrape()
+        now = str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
+        #print("openzones: " + openzones)
+        #print("currentZones: " + bot.currentZones)
         if openzones == "No data updates, Most likely a game update." and bot.currentZones != openzones:
-            bot.currentZones = openzones
-            await channel.send("SoROnline is not serving data. Will post again once its reporting again.")
+            if bot.spammalus == 5:
+                #bot.currentZones = openzones
+                await channel.send("SoROnline is not serving data. Will post again once its reporting again.")
+            else:
+                bot.spammalus += 1
         elif bot.currentZones == "" and openzones != "":
             bot.currentZones = openzones
         elif openzones != "" and bot.currentZones != openzones:
-            print(str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")) + " sent " + str(openzones) + " to channel")
+            print(now + " sent " + str(openzones) + " to channel")
             await channel.send("Current zones are:\n" + openzones)
+            bot.spammalus = 0
             for fort in bot.forts:
                 if fort in openzones and fort not in bot.currentZones:
                     guild = bot.get_guild(bot.guild)
@@ -83,8 +106,36 @@ async def my_background_task(self):
                 if city in openzones and city not in bot.currentZones:
                     guild = bot.get_guild(bot.guild)
                     role = get(guild.roles, name="CityPing")
+                    citystat = open('citystat.csv', 'a')
+                    citystat.write(now + "," + city + "\n")
+                    citystat.close()
                     await channel.send(role.mention)
+            #check if a fort happened and is now over
+            for fort in bot.forts:
+                if fort in bot.currentZones and fort not in openzones:
+                    #dumb logic
+                    fortstat = open('fortstat.csv', 'a')
+                    #order forts
+                    if fort == "Reikwald" or fort == "Shining Way" or fort == "Stonewatch":
+                        if "Dragonwake" in openzones or "Praag" in openzones or "Thunder Mountain" in openzones:
+                            fortstat.write(now + "," + fort + ",Order\n")
+                        else:
+                            fortstat.write(now + "," + fort + ",Destruction\n")
+                    #destro forts
+                    else:
+                        if "Dragonwake" in openzones or "Praag" in openzones or "Thunder Mountain" in openzones:
+                            fortstat.write(now + "," + fort + ",Destruction\n")
+                        else:
+                            fortstat.write(now + "," + fort + ",Order\n")
+
+                    fortstat.close()
             bot.currentZones = openzones
         await asyncio.sleep(60) 
 
+
+#@bot.command()
+#async def add(ctx, left : int, right : int):
+#    """Adds two numbers together."""
+#    await ctx.send(left + right)
+#
 bot.run(TOKEN)
