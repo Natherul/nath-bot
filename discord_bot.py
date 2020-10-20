@@ -5,21 +5,20 @@ from discord.utils import get
 #from discord.ext import commands
 import soronline
 from discord import File
+import json
 
-TOKEN = '' 
+TOKEN = ''
 description = '''Naths Discord Bot'''
-bot = discord.Client()  #commands.Bot(command_prefix='|', description=description)
+bot = discord.Client() 
 bot.currentZones = ""
 bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pass', 'Stonewatch']
 bot.cities = ['Inevitable City', 'Altdorf']
 bot.started = False
-bot.announceChannel = 
-bot.logChannel = 
-bot.guild = 
 bot.spammalus = 0
 bot.prefix = "|"
-bot.welcome = ""
-bot.boardingChannel = 
+bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing']
+bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1'}
+bot.confs = {}
 
 @bot.event
 async def on_ready():
@@ -33,87 +32,159 @@ async def on_ready():
         f = open('result.txt', 'r')
         bot.currentZones = f.read()
         f.close()
+        g = open('guilds.txt', 'r')
+        bot.confs = json.loads(g.read().replace("'", '"'))
+        g.close()
+        remake = False
+        for guild in bot.confs:
+            thisGuild = bot.confs[str(guild)]
+            for configuration in bot.allconf:
+                if configuration not in thisGuild:
+                    thisGuild[configuration] = bot.allconf[configuration]
+                    bot.confs[str(guild)] = thisGuild
+                    remake = True
+
+        if remake == True:
+            c = open('guilds.txt', 'w')
+            c.write(str(bot.confs))
+            c.close()
+
         await my_background_task(bot)
 
-#@bot.command()
-#async def RoR(ctx):
-#    """Gets the current status of RoR"""
-#    await ctx.send("world")
+@bot.event
+async def on_guild_join(guild):
+    if guild.id not in bot.confs:
+        thisGuild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1'}
+        bot.confs[str(guild.id)] = thisGuild
+        g = open('guilds.txt', 'w')
+        g.write(str(bot.confs))
+        g.close()
+
+@bot.event
+async def on_guild_remove(guild):
+    thisGuild = bot.confs[str(guild.id)]
+    thisGuild['enabled'] = '0'
+    bot.confs[str(guild.id)] = thisGuild
+    g = open('guilds.txt', 'w')
+    g.write(str(bot.confs))
+    g.close()
 
 @bot.event
 async def on_message(message):
-    if "discord link" in message.content:
-        await message.channel.send("The link to this discord is: ")
+    if message.content.startswith(bot.prefix + "configure") and message.author.id == message.guild.owner.id:
+        if str(message.guild.id) not in bot.confs.keys():
+            thisGuild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1'}
+            bot.confs[str(message.guild.id)] = thisGuild
+            g = open('guilds.txt', 'w')
+            g.write(str(bot.confs))
+            g.close()
+            await message.channel.send("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
+            return
+        found = False
+        for command in bot.configureCommands:
+            if command in message.content:
+                found = True
+                param = message.content.replace(bot.prefix + "configure " + command + " ", '')
+                if command == 'announceChannel' or command == 'logChannel' or command == 'boardingChannel' or command == 'fortPing' or command == 'cityPing':
+                    if param.isdecimal() == False:
+                        await message.channel.send("The command you entered needs to be in ID form (number only)")
+                        return
+                thisGuild = bot.confs[str(message.guild.id)]
+                thisGuild[command] = param
+                bot.confs[str(message.guild.id)] = thisGuild
+                await message.channel.send(command + " is now set to: " + param)
+        if found == False:
+            text = "Sorry I only accept the following configure commands: \n"
+            for command in bot.configureCommands:
+                text = text + command + "\n"
+            await message.channel.send(text)
+        else:
+            g = open('guilds.txt', 'w')
+            g.write(str(bot.confs))
+            g.close()
     elif bot.prefix + "fortstat" in message.content:
         await message.channel.send("Current gathered stats for forts", file=File('fortstat.csv'))
     elif bot.prefix + "citystat" in message.content:
         await message.channel.send("Current gathered stats for cities", file=File('citystat.csv'))
-    elif "Direct Message" in str(message.channel) and message.author != bot.user:
-        guild = bot.get_guild(bot.guild)
-        if "Remove FortPing" in message.content:
-            role = get(guild.roles, name="FortPing")
-            await guild.get_member(message.author.id).remove_roles(role)
-            await message.author.send(content = "Removed you from the fort pings")
-            await bot.get_channel(bot.logChannel).send("Removed " + str(message.author.id) + " / " + str(message.author.display_name) + " from FortPings")
-        elif "Add FortPing" in message.content:
-            role = get(guild.roles, name="FortPing")
-            await guild.get_member(message.author.id).add_roles(role)
-            await message.author.send(content = "Added you for fort pings")
-            await bot.get_channel(bot.logChannel).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to FortPings")
-        elif "Remove CityPing" in message.content:
-            role = get(guild.roles, name="CityPing")
-            await guild.get_member(message.author.id).remove_roles(role)
-            await message.author.send(content = "Removed you from the city pings")
-            await bot.get_channel(bot.logChannel).send("Removed " + str(message.author.id) + " / " + str(message.author.display_name) + " from CityPings")
-        elif "Add CityPing" in message.content:
-            role = get(guild.roles, name="CityPing")
-            await guild.get_member(message.author.id).add_roles(role)
-            await message.author.send(content = "Added you for city pings")
-            await bot.get_channel(bot.logChannel).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to CityPings")
-        else:
-            await message.author.send(content = "The only commands I recognize is currently: \n Remove FortPing \n Remove CityPing \n Add FortPing \n Add CityPing")
-
+        
+    elif bot.prefix + "Add " in message.content:
+        thisGuild = bot.confs[str(message.guild.id)]
+        if "FortPing" in message.content:
+            if thisGuild['fortPing'] != '0':
+                role = get(message.guild.roles, id=int(thisGuild['fortPing']))
+                await message.guild.get_member(message.author.id).add_roles(role)
+                if thisGuild['logChannel'] != '0':
+                    await bot.get_channel(int(thisGuild["logChannel"])).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to FortPings")
+        elif "CityPing" in message.content:
+            if thisGuild['cityPing'] != '0':
+                role = get(message.guild.roles, id=int(thisGuild['cityPing']))
+                await message.guild.get_member(message.author.id).add_roles(role)
+                if thisGuild['logChannel'] != '0':
+                    await bot.get_channel(int(thisGuild["logChannel"])).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to CityPings")
+    elif bot.prefix + "Remove " in message.content:
+        thisGuild = bot.confs[str(message.guild.id)]
+        if "FortPing" in message.content:
+            if thisGuild['fortPing'] != '0':
+                role = get(message.guild.roles, id=int(thisGuild['fortPing']))
+                await message.guild.get_member(message.author.id).remove_roles(role)
+                if thisGuild['logChannel'] != '0':
+                    await bot.get_channel(int(thisGuild["logChannel"])).send("Removed " + str(message.author.id) + " / " + str(message.author.display_name) + " from FortPings")
+        elif "CityPing" in message.content:
+            if thisGuild['cityPing'] != '0':
+                role = get(message.guild.roles, id=int(thisGuild['cityPing']))
+                await message.guild.get_member(message.author.id).remove_roles(role)
+                if thisGuild['logChannel'] != '0':
+                    await bot.get_channel(int(thisGuild["logChannel"])).send("Removed " + str(message.author.id) + " / " + str(message.author.display_name) + " from CityPings")
+        
+        
 async def on_member_join(member):
-    await bot.get_channel(bot.boardingChannel).send(bot.welcome)
+    guild = bot.confs[member.guild.id]
+    if guild['boardingChannel'] != '0' and guild['welcomeMessage'] != '0':
+        await bot.get_channel(int(guild["boardingChannel"])).send(guild['welcomeMessage'])
 
 async def my_background_task(self):
     await self.wait_until_ready()
-    channel = self.get_channel(bot.announceChannel) # channel ID goes here
     while not self.is_closed():
-        print(str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")) + " scraping")
-        openzones = soronline.scrape()
         now = str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
-        #print("openzones: " + openzones)
-        #print("currentZones: " + bot.currentZones)
+        print(now + " scraping")
+        openzones = soronline.scrape()
         if openzones == "No data updates, Most likely a game update." and bot.currentZones != openzones:
-            if bot.spammalus == 5:
-                #bot.currentZones = openzones
-                await channel.send("SoROnline is not serving data. Will post again once its reporting again.")
-            else:
-                bot.spammalus += 1
+            return
+        #    if bot.spammalus == 5:
+        #        #bot.currentZones = openzones
+        #        for guild in bot.confs:
+        #            thisGuild = bot.confs[guild]
+        #            if thisGuild["announceChannel"] != '0':
+        #                await bot.get_channel(int(thisGuild["announceChannel"])).send("SoROnline is not serving data. Will post again once its reporting again.")
+        #    else:
+        #        bot.spammalus += 1
         elif bot.currentZones == "" and openzones != "":
             bot.currentZones = openzones
         elif openzones != "" and bot.currentZones != openzones:
-            print(now + " sent " + str(openzones) + " to channel")
-            await channel.send("Current zones are:\n" + openzones)
+            print(now + " sent " + str(openzones) + " to channels")
             bot.spammalus = 0
-            for fort in bot.forts:
-                if fort in openzones and fort not in bot.currentZones:
-                    guild = bot.get_guild(bot.guild)
-                    role = get(guild.roles, name="FortPing")
-                    await channel.send(role.mention)
-            for city in bot.cities:
-                if city in openzones and city not in bot.currentZones:
-                    guild = bot.get_guild(bot.guild)
-                    role = get(guild.roles, name="CityPing")
-                    citystat = open('citystat.csv', 'a')
-                    citystat.write(now + "," + city + "\n")
-                    citystat.close()
-                    await channel.send(role.mention)
+            for guild in bot.confs:
+                thisGuild = bot.confs[guild]
+                if thisGuild['enabled'] == '0':
+                    continue
+                if thisGuild['announceChannel'] != '0':
+                    await bot.get_channel(int(thisGuild["announceChannel"])).send("Current zones are:\n" + openzones)
+                    for fort in bot.forts:
+                        if fort in openzones and fort not in bot.currentZones:
+                            if thisGuild['fortPing'] != '0':
+                                guild2 = bot.get_guild(int(guild))
+                                role = get(guild2.roles, id=int(thisGuild['fortPing']))
+                                await bot.get_channel(int(thisGuild["announceChannel"])).send(role.mention)
+                    for city in bot.cities:
+                        if city in openzones and city not in bot.currentZones:
+                            if thisGuild['cityPing'] != '0':
+                                guild2 = bot.get_guild(int(guild))
+                                role = get(guild2.roles, id=int(thisGuild['cityPing']))
+                                await bot.get_channel(int(thisGuild["announceChannel"])).send(role.mention)
             #check if a fort happened and is now over
             for fort in bot.forts:
                 if fort in bot.currentZones and fort not in openzones:
-                    #dumb logic
+                #dumb logic
                     fortstat = open('fortstat.csv', 'a')
                     #order forts
                     if fort == "Reikwald" or fort == "Shining Way" or fort == "Stonewatch":
@@ -129,13 +200,13 @@ async def my_background_task(self):
                             fortstat.write(now + "," + fort + ",Order\n")
 
                     fortstat.close()
+            for city in bot.cities:
+                if city in openzones and city not in bot.currentZones:
+                    citystat = open('citystat.csv', 'a')
+                    citystat.write(now + "," + city + "\n")
+                    citystat.close()
             bot.currentZones = openzones
         await asyncio.sleep(60) 
 
 
-#@bot.command()
-#async def add(ctx, left : int, right : int):
-#    """Adds two numbers together."""
-#    await ctx.send(left + right)
-#
 bot.run(TOKEN)
