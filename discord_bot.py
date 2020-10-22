@@ -7,7 +7,7 @@ import soronline
 from discord import File
 import json
 
-TOKEN = 'NzU4NzE4NzcxMjc1NDk3NTU5.X2zB6w.gF3Ebk8dzptUkJWbfty8g1y1Wkw'
+TOKEN = ''
 description = '''Naths Discord Bot'''
 bot = discord.Client() 
 bot.currentZones = ""
