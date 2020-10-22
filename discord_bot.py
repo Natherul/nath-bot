@@ -73,7 +73,7 @@ async def on_guild_remove(guild):
 @bot.event
 async def on_message(message):
     #do not listen to bots own messages
-    if message.author.id == bot.id:
+    if message.author.id == bot.user.id:
         return
     if message.content == bot.prefix or message.content == bot.prefix + "help":
         text = "These are the commands that can be issued:\n"
