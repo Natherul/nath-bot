@@ -106,7 +106,15 @@ async def on_message(message):
         await message.channel.send("Current gathered stats for forts", file=File('fortstat.csv'))
     elif bot.prefix + "citystat" in message.content:
         await message.channel.send("Current gathered stats for cities", file=File('citystat.csv'))
-        
+    
+    elif message.author.id == 173443339025121280 and bot.prefix + "announce" in message.content:
+        #nath announce
+        text = "Announcement from Natherul: \n" + message.content.replace(bot.prefix + "announce ", '')
+        for guild in bot.confs:
+            thisGuild = bot.confs[guild]
+            if thisGuild['enabled'] == '1' and thisGuild['announceChannel'] != '0':
+                await bot.get_channel(int(thisGuild['announceChannel'])).send(text)
+
     elif bot.prefix + "Add " in message.content:
         thisGuild = bot.confs[str(message.guild.id)]
         if "FortPing" in message.content:
@@ -146,9 +154,15 @@ async def my_background_task(self):
     await self.wait_until_ready()
     while not self.is_closed():
         now = str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
-        print(now + " scraping")
-        openzones = soronline.scrape()
+        #print(now + " scraping")
+        try:
+            openzones = soronline.scrape()
+        except:
+            print(now + " something went wrong")
+            await asyncio.sleep(60) 
+            return
         if openzones == "No data updates, Most likely a game update." and bot.currentZones != openzones:
+            await asyncio.sleep(60) 
             return
         #    if bot.spammalus == 5:
         #        #bot.currentZones = openzones

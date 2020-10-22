@@ -1,8 +1,9 @@
 [Unit]
 Description = Nath Discord Bot
-After = network.target
+After = multi-user.target
 
 [Service]
+ExecStartPre=/bin/sleep 30
 WorkingDirectory=/home/pi/discBot/
 ExecStart=python3 -u bot.py
 Restart=always
