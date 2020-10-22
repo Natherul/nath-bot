@@ -7,7 +7,7 @@ import soronline
 from discord import File
 import json
 
-TOKEN = ''
+TOKEN = 'NzU4NzE4NzcxMjc1NDk3NTU5.X2zB6w.gF3Ebk8dzptUkJWbfty8g1y1Wkw'
 description = '''Naths Discord Bot'''
 bot = discord.Client() 
 bot.currentZones = ""
@@ -16,6 +16,7 @@ bot.cities = ['Inevitable City', 'Altdorf']
 bot.started = False
 bot.spammalus = 0
 bot.prefix = "|"
+bot.commandDescriptions = {'configure': 'Commands to configure the bot (these can only be issued by the owner of the discord and there are multiple subcommands here)', 'citystat' : 'Posts the statistics for cities', 'fortstat' : 'Posts the statistics for fortresses', 'Add Fortping' : 'Adds you to the group that gets pinged on fortresses', 'Add CityPing' : 'Adds you to the group that gets pinged on cities', 'Remove FortPing' : 'Removes you from the group that gets pinged in fortresses', 'Remove CityPing' : 'Removes you from the group that gets pinged when cities happen'}
 bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing']
 bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1'}
 bot.confs = {}
@@ -71,6 +72,14 @@ async def on_guild_remove(guild):
 
 @bot.event
 async def on_message(message):
+    #do not listen to bots own messages
+    if message.author.id == bot.id:
+        return
+    if message.content == bot.prefix or message.content == bot.prefix + "help":
+        text = "These are the commands that can be issued:\n"
+        for command in bot.commandDescriptions:
+            text = text + bot.prefix + command + "   " + bot.commandDescriptions[command] + "\n"
+        await message.channel.send(text)
     if message.content.startswith(bot.prefix + "configure") and message.author.id == message.guild.owner.id:
         if str(message.guild.id) not in bot.confs.keys():
             thisGuild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1'}
