@@ -29,6 +29,20 @@ def scrape():
     if "servmsg" in data:
         openzones.append(data['servmsg'])
 
+    #early city detection
+    if "zonelocks" in data:
+        destrocount = 0
+        ordercount = 0
+        for lock in data['zonelocks']:
+            if lock['owner'] == "Destruction":
+                destrocount = destrocount + 1
+            elif lock['owner'] == "Order":
+                ordercount = ordercount + 1
+        if destrocount > 1 and "Altdorf" not in openzones:
+            openzones.append("Altdorf")
+        elif ordercount > 1 and "Inevitable City" not in openzones:
+            openzones.append("Inevitable City")
+
     string = str(openzones)
     string = string.replace("[", "")
     string = string.replace("]", "")

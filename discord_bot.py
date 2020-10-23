@@ -169,10 +169,10 @@ async def my_background_task(self):
         except:
             print(now + " something went wrong")
             await asyncio.sleep(60) 
-            return
+            continue
         if openzones == "No data updates, Most likely a game update." and bot.currentZones != openzones:
             await asyncio.sleep(60) 
-            return
+            continue
         #    if bot.spammalus == 5:
         #        #bot.currentZones = openzones
         #        for guild in bot.confs:
