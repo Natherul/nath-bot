@@ -180,7 +180,8 @@ async def on_message(message):
                     except:
                         await bot.get_guild(int(thisGuild)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
         
-        
+
+@bot.event
 async def on_member_join(member):
     guild = bot.confs[member.guild.id]
     if guild['boardingChannel'] != '0' and guild['welcomeMessage'] != '0':
