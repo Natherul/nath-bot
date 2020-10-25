@@ -113,13 +113,13 @@ async def on_message(message):
                     Found = False
                     if command == 'announceChannel' or command == 'logChannel' or command == 'boardingChannel':
                         for channel in tmpChannels:
-                            if param == channel.id or param == channel.name:
-                                param = channel.id
+                            if param == str(channel.id) or param == channel.name:
+                                param = str(channel.id)
                                 Found = True
                     else:
                         for role in tmpRoles:
-                            if param == role.id or param == role.name:
-                                param = role.id
+                            if param == str(role.id) or param == role.name:
+                                param = str(role.id)
                                 Found = True
 
                     if Found == False:
