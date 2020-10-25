@@ -107,8 +107,23 @@ async def on_message(message):
                 found = True
                 param = message.content.replace(bot.prefix + "configure " + command + " ", '')
                 if command == 'announceChannel' or command == 'logChannel' or command == 'boardingChannel' or command == 'fortPing' or command == 'cityPing':
-                    if param.isdecimal() == False:
-                        await message.channel.send("The command you entered needs to be in ID form (number only)")
+                    tmpGuild = message.guild
+                    tmpChannels = tmpGuild.text_channels
+                    tmpRoles = tmpGuild.roles
+                    Found = False
+                    if command == 'announceChannel' or command == 'logChannel' or command == 'boardingChannel':
+                        for channel in tmpChannels:
+                            if param == channel.id or param == channel.name:
+                                param = channel.id
+                                Found = True
+                    else:
+                        for role in tmpRoles:
+                            if param == role.id or param == role.name:
+                                param = role.id
+                                Found = True
+
+                    if Found == False:
+                        await message.channel.send("The parameter you specified was not found, please try again. I accept both names and IDs.")
                         return
                 thisGuild = bot.confs[str(message.guild.id)]
                 thisGuild[command] = param
@@ -143,19 +158,19 @@ async def on_message(message):
         thisGuild = bot.confs[str(message.guild.id)]
         if "FortPing" in message.content:
             if thisGuild['fortPing'] != '0':
-                role = get(message.guild.roles, id=int(thisGuild['fortPing']))
-                await message.guild.get_member(message.author.id).add_roles(role)
                 if thisGuild['logChannel'] != '0':
                     try:
+                        role = get(message.guild.roles, id=int(thisGuild['fortPing']))
+                        await message.guild.get_member(message.author.id).add_roles(role)
                         await bot.get_channel(int(thisGuild["logChannel"])).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to FortPings")
                     except:
                         await bot.get_guild(int(thisGuild)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
         elif "CityPing" in message.content:
             if thisGuild['cityPing'] != '0':
-                role = get(message.guild.roles, id=int(thisGuild['cityPing']))
-                await message.guild.get_member(message.author.id).add_roles(role)
                 if thisGuild['logChannel'] != '0':
                     try:
+                        role = get(message.guild.roles, id=int(thisGuild['cityPing']))
+                        await message.guild.get_member(message.author.id).add_roles(role)
                         await bot.get_channel(int(thisGuild["logChannel"])).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to CityPings")
                     except:
                         await bot.get_guild(int(thisGuild)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
@@ -163,19 +178,19 @@ async def on_message(message):
         thisGuild = bot.confs[str(message.guild.id)]
         if "FortPing" in message.content:
             if thisGuild['fortPing'] != '0':
-                role = get(message.guild.roles, id=int(thisGuild['fortPing']))
-                await message.guild.get_member(message.author.id).remove_roles(role)
                 if thisGuild['logChannel'] != '0':
                     try:
+                        role = get(message.guild.roles, id=int(thisGuild['fortPing']))
+                        await message.guild.get_member(message.author.id).remove_roles(role)
                         await bot.get_channel(int(thisGuild["logChannel"])).send("Removed " + str(message.author.id) + " / " + str(message.author.display_name) + " from FortPings")
                     except:
                         await bot.get_guild(int(thisGuild)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
         elif "CityPing" in message.content:
             if thisGuild['cityPing'] != '0':
-                role = get(message.guild.roles, id=int(thisGuild['cityPing']))
-                await message.guild.get_member(message.author.id).remove_roles(role)
                 if thisGuild['logChannel'] != '0':
                     try:
+                        role = get(message.guild.roles, id=int(thisGuild['cityPing']))
+                        await message.guild.get_member(message.author.id).remove_roles(role)
                         await bot.get_channel(int(thisGuild["logChannel"])).send("Removed " + str(message.author.id) + " / " + str(message.author.display_name) + " from CityPings")
                     except:
                         await bot.get_guild(int(thisGuild)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
@@ -183,7 +198,7 @@ async def on_message(message):
 
 @bot.event
 async def on_member_join(member):
-    guild = bot.confs[member.guild.id]
+    guild = bot.confs[str(member.guild.id)]
     if guild['boardingChannel'] != '0' and guild['welcomeMessage'] != '0':
         try:
             await bot.get_channel(int(guild["boardingChannel"])).send(guild['welcomeMessage'])
@@ -212,6 +227,9 @@ async def my_background_task(self):
         #                await bot.get_channel(int(thisGuild["announceChannel"])).send("SoROnline is not serving data. Will post again once its reporting again.")
         #    else:
         #        bot.spammalus += 1
+        if openzones == "No data updates, RoR server may be down" and bot.currentZones != openzones:
+            await asyncio.sleep(60)
+            continue
         elif bot.currentZones == "" and openzones != "":
             bot.currentZones = openzones
         elif openzones != "" and bot.currentZones != openzones:
