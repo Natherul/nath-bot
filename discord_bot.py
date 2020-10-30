@@ -268,15 +268,34 @@ async def my_background_task(self):
                 if fort in bot.currentZones and fort not in openzones:
                 #dumb logic
                     fortstat = open('fortstat.csv', 'a')
-                    #order forts
-                    if fort == "Reikwald" or fort == "Shining Way" or fort == "Stonewatch":
-                        if "Dragonwake" in openzones or "Praag" in openzones or "Thunder Mountain" in openzones:
+                    #really really dumb
+                    if fort == "Reikwald":
+                        if "Praag" in openzones:
                             fortstat.write(now + "," + fort + ",Order\n")
                         else:
                             fortstat.write(now + "," + fort + ",Destruction\n")
-                    #destro forts
-                    else:
-                        if "Dragonwake" in openzones or "Praag" in openzones or "Thunder Mountain" in openzones:
+                    elif fort == "Shining Way":
+                        if "Dragonwake" in openzones:
+                            fortstat.write(now + "," + fort + ",Order\n")
+                        else:
+                            fortstat.write(now + "," + fort + ",Destruction\n")
+                    elif fort == "Stonewatch":
+                        if "Thunder Mountain" in openzones:
+                            fortstat.write(now + "," + fort + ",Order\n")
+                        else:
+                            fortstat.write(now + "," + fort + ",Destruction\n")
+                    elif fort == "The Maw":
+                        if "Praag" in openzones:
+                            fortstat.write(now + "," + fort + ",Destruction\n")
+                        else:
+                            fortstat.write(now + "," + fort + ",Order\n")
+                    elif fort == "Fell Landing":
+                        if "Dragonwake" in openzones:
+                            fortstat.write(now + "," + fort + ",Destruction\n")
+                        else:
+                            fortstat.write(now + "," + fort + ",Order\n")
+                    elif fort == "Butchers Pass":
+                        if "Thunder Mountain" in openzones:
                             fortstat.write(now + "," + fort + ",Destruction\n")
                         else:
                             fortstat.write(now + "," + fort + ",Order\n")
