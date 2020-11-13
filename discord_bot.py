@@ -17,8 +17,8 @@ bot.started = False
 bot.spammalus = 0
 bot.prefix = "|"
 bot.commandDescriptions = {'configure': 'Commands to configure the bot (these can only be issued by the owner of the discord and there are multiple subcommands here)', 'citystat' : 'Posts the statistics for cities', 'fortstat' : 'Posts the statistics for fortresses', 'Add Fortping' : 'Adds you to the group that gets pinged on fortresses', 'Add CityPing' : 'Adds you to the group that gets pinged on cities', 'Remove FortPing' : 'Removes you from the group that gets pinged in fortresses', 'Remove CityPing' : 'Removes you from the group that gets pinged when cities happen'}
-bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing']
-bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1'}
+bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'removeAnnounce']
+bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1', 'removeAnnounce': '0'}
 bot.confs = {}
 
 @bot.event
@@ -55,7 +55,7 @@ async def on_ready():
 @bot.event
 async def on_guild_join(guild):
     if guild.id not in bot.confs:
-        thisGuild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1'}
+        thisGuild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0'}
         bot.confs[str(guild.id)] = thisGuild
         g = open('guilds.txt', 'w')
         g.write(str(bot.confs))
@@ -94,7 +94,7 @@ async def on_message(message):
         await message.channel.send(text)
     if message.content.startswith(bot.prefix + "configure") and message.author.id == message.guild.owner.id:
         if str(message.guild.id) not in bot.confs.keys():
-            thisGuild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1'}
+            thisGuild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0'}
             bot.confs[str(message.guild.id)] = thisGuild
             g = open('guilds.txt', 'w')
             g.write(str(bot.confs))
@@ -204,6 +204,19 @@ async def on_member_join(member):
             await bot.get_channel(int(guild["boardingChannel"])).send(guild['welcomeMessage'])
         except:
             await bot.get_guild(int(thisGuild)).owner.send("I tried to send a welcome message in the boarding channel but failed. Please reconfigure what channel to send welcomes to.")
+
+@bot.event
+async def on_member_remove(member):
+    guild = bot.confs[str(member.guild.id)]
+    if guild['removeAnnounce'] != '0' and guild['logChannel'] != '0':
+        thisGuild = bot.get_guild(member.guild.id) 
+        async for entry in thisGuild.audit_logs(limit=1):
+            #this is only the most recent event due to limit set abouve
+            if entry.action == discord.AuditLogAction.ban:
+                await bot.get_channel(int(guild['logChannel'])).send(entry.user.name + " banned " + entry.target.name + " with the reason: " + entry.reason)
+            if entry.action == discord.AuditLogAction.kick:
+                await bot.get_channel(int(guild['logChannel'])).send(entry.user.name + " kicked " + entry.target.name + " with the reason: " + entry.reason)
+
 
 async def my_background_task(self):
     await self.wait_until_ready()
