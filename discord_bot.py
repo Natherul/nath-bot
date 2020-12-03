@@ -6,6 +6,7 @@ from discord.utils import get
 import soronline
 from discord import File
 import json
+import time
 
 TOKEN = ''
 description = '''Naths Discord Bot'''
@@ -20,6 +21,7 @@ bot.commandDescriptions = {'configure': 'Commands to configure the bot (these ca
 bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'removeAnnounce']
 bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1', 'removeAnnounce': '0'}
 bot.confs = {}
+bot.lastCityTime = 0
 
 @bot.event
 async def on_ready():
@@ -164,7 +166,7 @@ async def on_message(message):
                         await message.guild.get_member(message.author.id).add_roles(role)
                         await bot.get_channel(int(thisGuild["logChannel"])).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to FortPings")
                     except:
-                        await bot.get_guild(int(thisGuild)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
+                        await bot.get_guild(int(message.guild.id)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
         elif "CityPing" in message.content:
             if thisGuild['cityPing'] != '0':
                 if thisGuild['logChannel'] != '0':
@@ -173,7 +175,7 @@ async def on_message(message):
                         await message.guild.get_member(message.author.id).add_roles(role)
                         await bot.get_channel(int(thisGuild["logChannel"])).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to CityPings")
                     except:
-                        await bot.get_guild(int(thisGuild)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
+                        await bot.get_guild(int(message.guild.id)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
     elif bot.prefix + "Remove " in message.content:
         thisGuild = bot.confs[str(message.guild.id)]
         if "FortPing" in message.content:
@@ -184,7 +186,7 @@ async def on_message(message):
                         await message.guild.get_member(message.author.id).remove_roles(role)
                         await bot.get_channel(int(thisGuild["logChannel"])).send("Removed " + str(message.author.id) + " / " + str(message.author.display_name) + " from FortPings")
                     except:
-                        await bot.get_guild(int(thisGuild)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
+                        await bot.get_guild(int(message.guild.id)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
         elif "CityPing" in message.content:
             if thisGuild['cityPing'] != '0':
                 if thisGuild['logChannel'] != '0':
@@ -193,7 +195,7 @@ async def on_message(message):
                         await message.guild.get_member(message.author.id).remove_roles(role)
                         await bot.get_channel(int(thisGuild["logChannel"])).send("Removed " + str(message.author.id) + " / " + str(message.author.display_name) + " from CityPings")
                     except:
-                        await bot.get_guild(int(thisGuild)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
+                        await bot.get_guild(int(message.guild.id)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
         
 
 @bot.event
@@ -203,7 +205,7 @@ async def on_member_join(member):
         try:
             await bot.get_channel(int(guild["boardingChannel"])).send(guild['welcomeMessage'])
         except:
-            await bot.get_guild(int(thisGuild)).owner.send("I tried to send a welcome message in the boarding channel but failed. Please reconfigure what channel to send welcomes to.")
+            await bot.get_guild(int(member.guild.id)).owner.send("I tried to send a welcome message in the boarding channel but failed. Please reconfigure what channel to send welcomes to.")
 
 @bot.event
 async def on_member_remove(member):
@@ -212,9 +214,9 @@ async def on_member_remove(member):
         thisGuild = bot.get_guild(member.guild.id) 
         async for entry in thisGuild.audit_logs(limit=1):
             #this is only the most recent event due to limit set abouve
-            if entry.action == discord.AuditLogAction.ban:
+            if entry.action == discord.AuditLogAction.ban and entry.target.name == member.name:
                 await bot.get_channel(int(guild['logChannel'])).send(entry.user.name + " banned " + entry.target.name + " with the reason: " + entry.reason)
-            if entry.action == discord.AuditLogAction.kick:
+            if entry.action == discord.AuditLogAction.kick and entry.target.name == member.name:
                 await bot.get_channel(int(guild['logChannel'])).send(entry.user.name + " kicked " + entry.target.name + " with the reason: " + entry.reason)
 
 
@@ -256,7 +258,7 @@ async def my_background_task(self):
                     try:
                         await bot.get_channel(int(thisGuild["announceChannel"])).send("Current zones are:\n" + openzones)
                     except:
-                        await bot.get_guild(int(thisGuild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
+                        await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
                         continue
                     for fort in bot.forts:
                         if fort in openzones and fort not in bot.currentZones:
@@ -266,16 +268,18 @@ async def my_background_task(self):
                                     role = get(guild2.roles, id=int(thisGuild['fortPing']))
                                     await bot.get_channel(int(thisGuild["announceChannel"])).send(role.mention)
                                 except:
-                                    await bot.get_guild(int(thisGuild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
+                                    await bot.get_guild(int(guild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
                     for city in bot.cities:
                         if city in openzones and city not in bot.currentZones:
-                            if thisGuild['cityPing'] != '0':
-                                guild2 = bot.get_guild(int(guild))
-                                try:
-                                    role = get(guild2.roles, id=int(thisGuild['cityPing']))
-                                    await bot.get_channel(int(thisGuild["announceChannel"])).send(role.mention)
-                                except:
-                                    await bot.get_guild(int(thisGuild)).owner.send("I tried to ping for city but failed. Please reconfigure what group to ping")
+                            if time.time() > bot.lastCityTime:
+                                bot.lastCityTime = time.time() + 10800 #3 hours
+                                if thisGuild['cityPing'] != '0':
+                                    guild2 = bot.get_guild(int(guild))
+                                    try:
+                                        role = get(guild2.roles, id=int(thisGuild['cityPing']))
+                                        await bot.get_channel(int(thisGuild["announceChannel"])).send(role.mention)
+                                    except:
+                                        await bot.get_guild(int(guild)).owner.send("I tried to ping for city but failed. Please reconfigure what group to ping")
             #check if a fort happened and is now over
             for fort in bot.forts:
                 if fort in bot.currentZones and fort not in openzones:

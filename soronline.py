@@ -10,6 +10,7 @@ def scrape():
     
     openzones = []
     shouldWrite = False
+    string = ""
     
     if "keeps" in data:
         shouldWrite = True
@@ -40,13 +41,16 @@ def scrape():
                 ordercount = ordercount + 1
         if destrocount > 1 and "Altdorf" not in openzones:
             openzones.append("Altdorf")
+            shouldWrite = True
         elif ordercount > 1 and "Inevitable City" not in openzones:
             openzones.append("Inevitable City")
+            shouldWrite = True
 
-    string = str(openzones)
-    string = string.replace("[", "")
-    string = string.replace("]", "")
-    string = string.replace("'", "")
+    if len(openzones) > 0:
+        string = str(openzones)
+        string = string.replace("[", "")
+        string = string.replace("]", "")
+        string = string.replace("'", "")
     if shouldWrite == True:
         f = open("result.txt", "w")
         f.write(string)
