@@ -148,7 +148,7 @@ async def on_message(message):
             thisGuild = bot.confs[guild]
             if thisGuild['enabled'] == '1' and thisGuild['announceChannel'] != '0':
                 try:
-                    await bot.get_channel(int(thisGuild['announceChannel'])).send(embed=makeEmbed("Announcement from Natherul", text, 0x00ff00, "https://w7.pngwing.com/pngs/895/799/png-transparent-computer-icons-megaphone-announcement-angle-text-trademark-thumbnail.png", {}))
+                    await bot.get_channel(int(thisGuild['announceChannel'])).send(embed=makeEmbed("Announcement from Natherul", text, 0x00ff00, "http://tue.nu/misc/announce.png", {}))
                 except:
                     print("announcement channel wrong in: " + thisGuild)
 
@@ -245,12 +245,12 @@ async def my_background_task(self):
                     continue
                 if thisGuild['announceChannel'] != '0':
                     try:
-                        await bot.get_channel(int(thisGuild["announceChannel"])).send(embed=makeEmbed("Current Zones", "These are the current zones reported by soronline", 0x00d9ff, "https://c0.klipartz.com/pngpicture/148/563/sticker-png-warhammer-online-age-of-reckoning-kingdoms-of-amalur-reckoning-%D0%9C%D0%BE%D0%BC%D0%B5%D0%BD%D1%82-logo-computer-servers-day-of-reckoning-logo-war-emulator-emu-brand-thumbnail.png", openzones))
+                        await bot.get_channel(int(thisGuild["announceChannel"])).send(embed=makeEmbed("Current Zones", "These are the current zones reported by soronline", 0x00d9ff, "http://www.tue.nu/misc/ror.png", openzones))
                     except:
                         await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
                         continue
                     for fort in bot.forts:
-                        if fort in openzones.keys() and fort not in bot.currentZones.keys():
+                        if fort in openzones.values() and fort not in bot.currentZones.values():
                             if thisGuild['fortPing'] != '0':
                                 guild2 = bot.get_guild(int(guild))
                                 try:
@@ -259,7 +259,7 @@ async def my_background_task(self):
                                 except:
                                     await bot.get_guild(int(guild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
                     for city in bot.cities:
-                        if city in openzones.keys() and city not in bot.currentZones.keys():
+                        if city in openzones.values() and city not in bot.currentZones.values():
                             if time.time() > bot.lastCityTime:
                                 bot.lastCityTime = time.time() + 10800 #3 hours
                                 if thisGuild['cityPing'] != '0':
@@ -271,44 +271,44 @@ async def my_background_task(self):
                                         await bot.get_guild(int(guild)).owner.send("I tried to ping for city but failed. Please reconfigure what group to ping")
             #check if a fort happened and is now over
             for fort in bot.forts:
-                if fort in bot.currentZones.keys() and fort not in openzones.keys():
+                if fort in bot.currentZones.values() and fort not in openzones.values():
                 #dumb logic
                     fortstat = open('fortstat.csv', 'a')
                     #really really dumb
                     if fort == "Reikwald":
-                        if "Praag" in openzones.keys():
+                        if "Praag" in openzones.values():
                             fortstat.write(now + "," + fort + ",Order\n")
                         else:
                             fortstat.write(now + "," + fort + ",Destruction\n")
                     elif fort == "Shining Way":
-                        if "Dragonwake" in openzones.keys():
+                        if "Dragonwake" in openzones.values():
                             fortstat.write(now + "," + fort + ",Order\n")
                         else:
                             fortstat.write(now + "," + fort + ",Destruction\n")
                     elif fort == "Stonewatch":
-                        if "Thunder Mountain" in openzones.keys():
+                        if "Thunder Mountain" in openzones.values():
                             fortstat.write(now + "," + fort + ",Order\n")
                         else:
                             fortstat.write(now + "," + fort + ",Destruction\n")
                     elif fort == "The Maw":
-                        if "Praag" in openzones.keys():
+                        if "Praag" in openzones.values():
                             fortstat.write(now + "," + fort + ",Destruction\n")
                         else:
                             fortstat.write(now + "," + fort + ",Order\n")
                     elif fort == "Fell Landing":
-                        if "Dragonwake" in openzones.keys():
+                        if "Dragonwake" in openzones.values():
                             fortstat.write(now + "," + fort + ",Destruction\n")
                         else:
                             fortstat.write(now + "," + fort + ",Order\n")
                     elif fort == "Butchers Pass":
-                        if "Thunder Mountain" in openzones.keys():
+                        if "Thunder Mountain" in openzones.values():
                             fortstat.write(now + "," + fort + ",Destruction\n")
                         else:
                             fortstat.write(now + "," + fort + ",Order\n")
 
                     fortstat.close()
             for city in bot.cities:
-                if city in openzones.keys() and city not in bot.currentZones.keys():
+                if city in openzones.values() and city not in bot.currentZones.values():
                     citystat = open('citystat.csv', 'a')
                     citystat.write(now + "," + city + "\n")
                     citystat.close()

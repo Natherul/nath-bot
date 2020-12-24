@@ -20,7 +20,7 @@ def scrape():
     if "forts" in data:
         shouldWrite = True
         for fort in data['forts']:
-            openzones[keep['pname']] = keep['name']
+            openzones[fort['pname']] = fort['name']
     
     if "cities" in data:
         shouldWrite = True
