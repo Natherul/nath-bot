@@ -35,6 +35,7 @@ def scrape():
         destrocount = 0
         ordercount = 0
         for lock in data['zonelocks']:
+            openzones[lock['name']] = "locked by " + lock['owner']
             if lock['owner'] == "Destruction":
                 destrocount = destrocount + 1
             elif lock['owner'] == "Order":
