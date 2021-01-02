@@ -21,3 +21,9 @@ The bot also produces the file results.txt which contains the last information f
 
 One such example of a systemd service file is located in the examples folder, this example assumes the scripts are placed in the location: "/home/pi/discBot/".
 
+Typical usage:
+![normal use](https://github.com/natherul/nath-bot/blob/master/typical.jpg?raw=true)
+
+Configuring:
+![configure help](https://github.com/natherul/nath-bot/blob/master/configure.jpg?raw=true)
+
