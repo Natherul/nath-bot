@@ -24,6 +24,7 @@ bot.confs = {}
 bot.lastCityTime = 0
 bot.servmsg = ""
 bot.lastannounce = ""
+bot.lasterr = ""
 
 @bot.event
 async def on_ready():
@@ -241,8 +242,9 @@ async def my_background_task(self):
             await asyncio.sleep(60) 
             continue
         if "Server" in openzones:
-            bot.servmsg = openzones
-            if bot.lastannounce != now:
+            if bot.servmsg != openzones or int(bot.lasterr) < int(bot.lastannounce)
+                bot.servmsg = openzones
+                bot.lasterr = now
                 for guild in bot.confs:
                     thisGuild = bot.confs[guild]
                     try:
@@ -282,7 +284,7 @@ async def my_background_task(self):
                                         await bot.get_guild(int(guild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
                         for city in bot.cities:
                             if city in openzones.values() and city not in bot.currentZones.values():
-                                if time.time() > bot.lastCityTime:
+                                if time.time() > int(bot.lastCityTime):
                                     bot.lastCityTime = time.time() + 10800 #3 hours
                                     lastTime = open('lastcity.txt', 'w')
                                     lastTime.write(bot.lastCityTime)
