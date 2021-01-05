@@ -242,7 +242,7 @@ async def my_background_task(self):
             await asyncio.sleep(60) 
             continue
         if "Server" in openzones:
-            if bot.servmsg != openzones or int(bot.lasterr) < int(bot.lastannounce)
+            if bot.servmsg != openzones or int(bot.lasterr) < int(bot.lastannounce):
                 bot.servmsg = openzones
                 bot.lasterr = now
                 for guild in bot.confs:
