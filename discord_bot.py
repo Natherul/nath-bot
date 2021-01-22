@@ -242,7 +242,7 @@ async def my_background_task(self):
             await asyncio.sleep(60) 
             continue
         if "Server" in openzones:
-            if bot.servmsg != openzones or int(bot.lasterr) < int(bot.lastannounce):
+            if bot.servmsg != openzones or bot.lasterr < bot.lastannounce:
                 bot.servmsg = openzones
                 bot.lasterr = now
                 for guild in bot.confs:
@@ -272,6 +272,7 @@ async def my_background_task(self):
                                 await bot.get_channel(int(thisGuild["announceChannel"])).send(embed=makeEmbed("Current Zones", "These are the current zones reported by soronline.us", 0xe08a00, "http://www.tue.nu/misc/ror.png", openzones))
                         except:
                             await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
+                            print("skipped " + guild)
                             continue
                         for fort in bot.forts:
                             if fort in openzones.values() and fort not in bot.currentZones.values():
@@ -284,10 +285,10 @@ async def my_background_task(self):
                                         await bot.get_guild(int(guild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
                         for city in bot.cities:
                             if city in openzones.values() and city not in bot.currentZones.values():
-                                if time.time() > int(bot.lastCityTime):
+                                if time.time() > float(bot.lastCityTime):
                                     bot.lastCityTime = time.time() + 10800 #3 hours
                                     lastTime = open('lastcity.txt', 'w')
-                                    lastTime.write(bot.lastCityTime)
+                                    lastTime.write(str(bot.lastCityTime))
                                     lastTime.close()
                                     skipCityLog = False
                                     if thisGuild['cityPing'] != '0':
