@@ -26,6 +26,9 @@ bot.servmsg = ""
 bot.lastannounce = ""
 bot.lasterr = ""
 
+#for if we want to edit announces
+bot.lastAnnounceMessage = {}
+
 @bot.event
 async def on_ready():
     if bot.started == False:
@@ -138,6 +141,10 @@ async def on_message(message):
                     if Found == False:
                         await message.channel.send("The parameter you specified was not found, please try again. I accept both names and IDs.")
                         return
+                if command == 'removeAnnounce' or command == 'announceServmsg':
+                    if param != '1' or param != '0':
+                        await message.channel.send("The parameter you specified is not accepted. This option can only be 1 or 0 (on or off)")
+                        return
                 thisGuild = bot.confs[str(message.guild.id)]
                 thisGuild[command] = param
                 bot.confs[str(message.guild.id)] = thisGuild
@@ -148,23 +155,31 @@ async def on_message(message):
             g = open('guilds.txt', 'w')
             g.write(str(bot.confs))
             g.close()
-    elif bot.prefix + "fortstat" in message.content:
+    elif message.content.startswith(bot.prefix + "fortstat"):
         await message.channel.send("Current gathered stats for forts", file=File('fortstat.csv'))
-    elif bot.prefix + "citystat" in message.content:
+    elif message.content.startswith(bot.prefix + "citystat"):
         await message.channel.send("Current gathered stats for cities", file=File('citystat.csv'))
-    
-    elif message.author.id == 173443339025121280 and bot.prefix + "announce" in message.content:
-        #nath announce
+    #debug
+    elif message.content.startswith(bot.prefix + "debug"):
+        thisGuild = bot.confs[str(message.guild.id)]
+        await message.channel.send(embed=makeEmbed("These are the current settings for this server", "", 0xd8de0c, "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png", thisGuild))
+    #nath announce 
+    elif message.author.id == 173443339025121280 and message.content.startswith(bot.prefix + "announce"):
         text = message.content.replace(bot.prefix + "announce ", '')
         for guild in bot.confs:
             thisGuild = bot.confs[guild]
             if thisGuild['enabled'] == '1' and thisGuild['announceChannel'] != '0':
                 try:
-                    await bot.get_channel(int(thisGuild['announceChannel'])).send(embed=makeEmbed("Announcement from Natherul", text, 0x00ff00, "http://tue.nu/misc/announce.png", {}))
+                    bot.lastAnnounceMessage[guild] = await bot.get_channel(int(thisGuild['announceChannel'])).send(embed=makeEmbed("Announcement from Natherul", text, 0x00ff00, "http://tue.nu/misc/announce.png", {}))
                 except:
                     print("announcement channel wrong in: " + thisGuild)
+    #edit old announces
+    elif message.author.id == 173443339025121280 and message.conent.startswith(bot.prefix + "editAnnounce"):
+        text = message.content.replace(bot.prefix + "editAnnounce ", '')
+        for message in bot.lastAnnounceMessage:
+            bot.lastAnnounceMessage[message].edit(embed=makeEmbed("Announcement from Natherul", text, 0x00ff00, "http://tue.nu/misc/announce.png", {}))
 
-    elif bot.prefix + "Add " in message.content:
+    elif message.content.startswith(bot.prefix + "Add "):
         thisGuild = bot.confs[str(message.guild.id)]
         if "FortPing" in message.content:
             if thisGuild['fortPing'] != '0':
@@ -184,7 +199,7 @@ async def on_message(message):
                         await bot.get_channel(int(thisGuild["logChannel"])).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to CityPings")
                     except:
                         await bot.get_guild(int(message.guild.id)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
-    elif bot.prefix + "Remove " in message.content:
+    elif message.conent.startswith(bot.prefix + "Remove "):
         thisGuild = bot.confs[str(message.guild.id)]
         if "FortPing" in message.content:
             if thisGuild['fortPing'] != '0':
