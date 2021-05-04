@@ -174,7 +174,7 @@ async def on_message(message):
                 except:
                     print("announcement channel wrong in: " + thisGuild)
     #edit old announces
-    elif message.author.id == 173443339025121280 and message.conent.startswith(bot.prefix + "editAnnounce"):
+    elif message.author.id == 173443339025121280 and message.content.startswith(bot.prefix + "editAnnounce"):
         text = message.content.replace(bot.prefix + "editAnnounce ", '')
         for message in bot.lastAnnounceMessage:
             bot.lastAnnounceMessage[message].edit(embed=makeEmbed("Announcement from Natherul", text, 0x00ff00, "http://tue.nu/misc/announce.png", {}))
@@ -199,7 +199,7 @@ async def on_message(message):
                         await bot.get_channel(int(thisGuild["logChannel"])).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to CityPings")
                     except:
                         await bot.get_guild(int(message.guild.id)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
-    elif message.conent.startswith(bot.prefix + "Remove "):
+    elif message.content.startswith(bot.prefix + "Remove "):
         thisGuild = bot.confs[str(message.guild.id)]
         if "FortPing" in message.content:
             if thisGuild['fortPing'] != '0':
