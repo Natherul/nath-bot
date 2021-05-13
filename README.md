@@ -6,10 +6,12 @@ https://discord.com/oauth2/authorize?client_id=758718771275497559&scope=bot&perm
 
 Once invited you need to configure the bot with the relevant information. Get started with issuing "|configure" in any channel the bot can see.
 
-Support:
+**Support**:
+
 If you need any help which is not a bug please join https://www.guilded.gg/i/1EqWJ75k (no account is needed) and Ill try and help there.
 
-THIS PART BELOW IS FOR SELFHOSTING ONLY:
+**THIS PART BELOW IS FOR SELFHOSTING ONLY**:
+
 Note that this is only for selfhosting the bot and it will be run as a python script. It comes with two files:
 
 bot.py              <- The actual bot that you will be running.
@@ -24,11 +26,11 @@ The bot also produces the file results.txt which contains the last information f
 
 One such example of a systemd service file is located in the examples folder, this example assumes the scripts are placed in the location: "/home/pi/discBot/".
 
-Typical usage:
+**Typical usage**:
 
 ![normal use](https://github.com/natherul/nath-bot/blob/master/typical.jpg?raw=true)
 
-Configuring:
+**Configuring**:
 
 ![configure help](https://github.com/natherul/nath-bot/blob/master/configure.jpg?raw=true)
 
