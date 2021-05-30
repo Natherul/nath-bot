@@ -389,9 +389,9 @@ def add_event(message):
     events = this_guild['events']
     try:
         event_data = message.content.replace(bot.prefix + 'Add Event ', '').split(",")
-        if time.strptime('%Y-%m-%d %H:%M:%S', time.gmtime(event_data[0])) < datetime.utcnow():
+        if datetime.fromtimestamp(int(event_data[0])) < datetime.utcnow():
             return 1
-        this_event = {'Host' : message.author.display_name, 'Name' : event_data[1], 'Description' : event_data[2], 'UTC Time' : time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(event_data[0]))}
+        this_event = {'Host' : message.author.display_name, 'Name' : event_data[1], 'Description' : event_data[2], 'UTC Time' : time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(event_data[0])))}
         events[now] = this_event
         this_guild['events'] = events
         bot.confs[str(message.guild.id)] = this_guild
