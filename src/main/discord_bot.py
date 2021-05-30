@@ -1,4 +1,5 @@
 from datetime import datetime
+from datetime import timedelta
 import discord
 import asyncio
 from discord.utils import get
@@ -15,10 +16,10 @@ bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pas
 bot.cities = ['Inevitable City', 'Altdorf']
 bot.started = False
 bot.prefix = "|"
-bot.commandDescriptions = {'configure': 'Commands to configure the bot (these can only be issued by the owner of the discord and there are multiple subcommands here)', 'citystat' : 'Posts the statistics for cities', 'fortstat' : 'Posts the statistics for fortresses', 'Add Fortping' : 'Adds you to the group that gets pinged on fortresses', 'Add CityPing' : 'Adds you to the group that gets pinged on cities', 'Remove FortPing' : 'Removes you from the group that gets pinged in fortresses', 'Remove CityPing' : 'Removes you from the group that gets pinged when cities happen'}
-bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'removeAnnounce', 'announceServmsg']
-bot.configDesc = {'announceChannel' : '(String/int)What channel to post campaign to (either Channel name or channelID specified)', 'logChannel' : '(String/int)What channel to pot logs about moderation or role changes (either channel name or channelID specified)', 'welcomeMessage' : '(String)What the bot should greet someone that joins the server with', 'boardingChannel': '(String/int)What channel to post welcome messages to (either channel name or channelID specified)', 'fortPing' : '(String/int)What role to attatch to announcement of campaign when a fort happens (role name or roleID specified)', 'cityPing' : '(String/int)What role to attach to announcement of campagin when a city happens(role name or roleID specified)', 'removeAnnounce' : '(bool as int)If the bot should post in the log channel when someone gets kicked or banned from the server', 'announceServmsg': '(bool as int)If the bot should announce issues or other messages from soronline.us'}
-bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1', 'removeAnnounce': '0', 'announceServmsg' : '0'}
+bot.commandDescriptions = {'configure': 'Commands to configure the bot (these can only be issued by the owner of the discord and there are multiple subcommands here)', 'citystat' : 'Posts the statistics for cities', 'fortstat' : 'Posts the statistics for fortresses', 'Add Fortping' : 'Adds you to the group that gets pinged on fortresses', 'Add CityPing' : 'Adds you to the group that gets pinged on cities', 'Remove FortPing' : 'Removes you from the group that gets pinged in fortresses', 'Remove CityPing' : 'Removes you from the group that gets pinged when cities happen', 'Add Event' : 'Adds an event to the bot using syntax: "epoch,name,description" (https://www.epochconverter.com/)', 'Remove Event' : 'Removes an event with the specified ID', 'List Event' : 'Lists all events for the guild'}
+bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'removeAnnounce', 'announceServmsg', 'eventChannel']
+bot.configDesc = {'announceChannel' : '(String/int)What channel to post campaign to (either Channel name or channelID specified)', 'logChannel' : '(String/int)What channel to pot logs about moderation or role changes (either channel name or channelID specified)', 'welcomeMessage' : '(String)What the bot should greet someone that joins the server with', 'boardingChannel': '(String/int)What channel to post welcome messages to (either channel name or channelID specified)', 'fortPing' : '(String/int)What role to attatch to announcement of campaign when a fort happens (role name or roleID specified)', 'cityPing' : '(String/int)What role to attach to announcement of campagin when a city happens(role name or roleID specified)', 'removeAnnounce' : '(bool as int)If the bot should post in the log channel when someone gets kicked or banned from the server', 'announceServmsg': '(bool as int)If the bot should announce issues or other messages from soronline.us', 'eventChannel' : '(String/int)What channel to post event messages to (either channel name or channelID specified)'}
+bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1', 'removeAnnounce': '0', 'announceServmsg' : '0', "eventChannel" : "0", "events" : {}}
 bot.confs = {}
 bot.lastCityTime = 0
 bot.servmsg = ""
@@ -65,23 +66,19 @@ async def on_ready():
             c.write(str(bot.confs))
             c.close()
 
-        await my_background_task(bot)
+        await zone_check(bot)
 
 @bot.event
 async def on_guild_join(guild):
     if guild.id not in bot.confs:
-        this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0'}
+        this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', "events" : {}}
         bot.confs[str(guild.id)] = this_guild
-        g = open('guilds.txt', 'w')
-        g.write(str(bot.confs))
-        g.close()
+        save_conf()
     else:
         this_guild = bot.confs[str(guild.id)]
         this_guild['enabled'] = '1'
         bot.confs[str(guild.id)] = this_guild
-        g = open('guilds.txt', 'w')
-        g.write(str(bot.confs))
-        g.close()
+        save_conf()
     await guild.owner.send('Thanks for inviting me to the server. To get started you need to set up what channels I should talk to when announcing. Do this by:\n"' + bot.prefix + 'configure" in any channel in the guild and I will respond with your options.\nYou can at any time also issue: "' + bot.prefix + 'help" to see what commands are avilable.')
 
 @bot.event
@@ -89,9 +86,7 @@ async def on_guild_remove(guild):
     this_guild = bot.confs[str(guild.id)]
     this_guild['enabled'] = '0'
     bot.confs[str(guild.id)] = this_guild
-    g = open('guilds.txt', 'w')
-    g.write(str(bot.confs))
-    g.close()
+    save_conf()
 
 @bot.event
 async def on_message(message):
@@ -106,11 +101,9 @@ async def on_message(message):
         await message.channel.send(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png", bot.commandDescriptions))
     if message.content.startswith(bot.prefix + "configure") and message.author.id == message.guild.owner.id:
         if str(message.guild.id) not in bot.confs.keys():
-            this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0'}
+            this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', 'events' : []}
             bot.confs[str(message.guild.id)] = this_guild
-            g = open('guilds.txt', 'w')
-            g.write(str(bot.confs))
-            g.close()
+            save_conf()
             await message.channel.send("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
             return
         if message.content == bot.prefix + "configure" or message.content == bot.prefix + "configure help":
@@ -121,12 +114,12 @@ async def on_message(message):
             if command in message.content:
                 found = True
                 param = message.content.replace(bot.prefix + "configure " + command + " ", '')
-                if command == 'announceChannel' or command == 'logChannel' or command == 'boardingChannel' or command == 'fortPing' or command == 'cityPing':
+                if command == 'announceChannel' or command == 'logChannel' or command == 'boardingChannel' or command == 'fortPing' or command == 'cityPing' or command == 'eventChannel':
                     tmp_guild = message.guild
                     tmp_channels = tmp_guild.text_channels
                     tmp_roles = tmp_guild.roles
                     found = False
-                    if command == 'announceChannel' or command == 'logChannel' or command == 'boardingChannel':
+                    if command == 'announceChannel' or command == 'logChannel' or command == 'boardingChannel' or command == 'eventChannel':
                         for channel in tmp_channels:
                             if param == str(channel.id) or param == channel.name:
                                 param = str(channel.id)
@@ -151,9 +144,7 @@ async def on_message(message):
         if found == False:
             await message.channel.send(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png", bot.commandDescriptions))
         else:
-            g = open('guilds.txt', 'w')
-            g.write(str(bot.confs))
-            g.close()
+            save_conf()
     elif message.content.startswith(bot.prefix + "fortstat"):
         await message.channel.send("Current gathered stats for forts", file=File('fortstat.csv'))
     elif message.content.startswith(bot.prefix + "citystat"):
@@ -198,6 +189,11 @@ async def on_message(message):
                         await bot.get_channel(int(this_guild["logChannel"])).send("Added " + str(message.author.id) + " / " + str(message.author.display_name) + " to CityPings")
                     except:
                         await bot.get_guild(int(message.guild.id)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
+        elif "Event" in message.content:
+            if this_guild['eventChannel'] == '0':
+                await message.channel.send("This guild has not set up a channel for events, creating events is disabled.")
+            elif add_event(message) != 0:
+                await message.channel.send("Something went wrong when attempting to create an event, please ensure that you formatted the command correct")
     elif message.content.startswith(bot.prefix + "Remove "):
         this_guild = bot.confs[str(message.guild.id)]
         if "FortPing" in message.content:
@@ -218,7 +214,15 @@ async def on_message(message):
                         await bot.get_channel(int(this_guild["logChannel"])).send("Removed " + str(message.author.id) + " / " + str(message.author.display_name) + " from CityPings")
                     except:
                         await bot.get_guild(int(message.guild.id)).owner.send("I tried to send a message in the log channel but failed. Please reconfigure what channel to send logs to.")
-        
+        elif "Event" in message.content:
+            if remove_event(message.guild.id, message.content.replace(bot.prefix + 'Remove Event ', '')) == False:
+                await message.channel.send("There is no such event to remove")
+    elif message.content.startswith(bot.prefix + "List "):
+        this_guild = bot.confs[str(message.guild.id)]
+        if "Event" in message.content:
+            events = this_guild['events']
+            for event in events:
+                await message.channel.send(embed=make_embed("Event", event, 0x038cfc, "", events[event]))
 
 @bot.event
 async def on_member_join(member):
@@ -243,10 +247,22 @@ async def on_member_remove(member):
                 msg = entry.user.name + " kicked " + entry.target.name
                 await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Kicked", "A user was kicked", 0xfa0000, "https://p7.hiclipart.com/preview/825/776/55/karate-kick-martial-arts-taekwondo-clip-art-kicked-thumbnail.jpg", {msg : entry.reason}))
 
+async def event_check(self):
+    for guild in bot.confs:
+        this_guild = bot.confs[guild]
+        if this_guild['eventChannel'] != '0':
+            events = this_guild['events']
+            for event in events:
+                event_time = datetime.strptime(events[event]['UTC Time'], "%Y-%m-%d %H:%M:%S")
+                reminder_time = event_time - timedelta(minutes=30)
+                if datetime.utcnow() > reminder_time:
+                    await bot.get_channel(int(this_guild['eventChannel'])).send(embed=make_embed("Event is in 30 minutes!", event, 0x038cfc, "", events[event]))
+                    remove_event(guild, event)
 
-async def my_background_task(self):
+async def zone_check(self):
     await self.wait_until_ready()
     while not self.is_closed():
+        await event_check(self)
         now = str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
         skip_city_log = True
         try:
@@ -357,13 +373,47 @@ async def my_background_task(self):
                         citystat.close()
                 bot.currentZones = openzones
                 bot.lastannounce = now
-            await asyncio.sleep(60) 
+        await asyncio.sleep(60) 
 
 def make_embed(title, description, colour, thumbnail, fields):
     embed_var = discord.Embed(title=title, description=description, color=colour)
-    embed_var.set_thumbnail(url=thumbnail)
+    if thumbnail != "":
+        embed_var.set_thumbnail(url=thumbnail)
     for entry in fields:
         embed_var.add_field(name=entry, value=fields[entry], inline=False)
     return embed_var
+
+def add_event(message):
+    now = str(time.time()).split('.')[0]
+    this_guild = bot.confs[str(message.guild.id)]
+    events = this_guild['events']
+    try:
+        event_data = message.content.replace(bot.prefix + 'Add Event ', '').split(",")
+        if time.strptime('%Y-%m-%d %H:%M:%S', time.gmtime(event_data[0])) < datetime.utcnow():
+            return 1
+        this_event = {'Host' : message.author.display_name, 'Name' : event_data[1], 'Description' : event_data[2], 'UTC Time' : time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(event_data[0]))}
+        events[now] = this_event
+        this_guild['events'] = events
+        bot.confs[str(message.guild.id)] = this_guild
+        save_conf()
+        return 0
+    except:
+        return 1
+
+def remove_event(guildid, id):
+    this_guild = bot.confs[str(guildid)]
+    events = this_guild['events']
+    found = False
+    if id in events:
+        events.pop(id)
+        found = True
+    bot.confs[str(guildid)] = this_guild
+    save_conf()
+    return found
+
+def save_conf():
+    g = open('guilds.txt', 'w')
+    g.write(str(bot.confs))
+    g.close()
 
 bot.run(TOKEN)
