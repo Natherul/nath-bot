@@ -9,7 +9,9 @@ import json
 import time
 import ast
 
-TOKEN = ''
+t = open('token.txt', 'r')
+TOKEN = t.read() 
+t.close()
 bot = discord.Client() 
 bot.currentZones = ""
 bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pass', 'Stonewatch']
@@ -99,7 +101,7 @@ async def on_message(message):
         return
     if message.content == bot.prefix or message.content == bot.prefix + "help":
         await message.channel.send(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png", bot.commandDescriptions))
-    if message.content.startswith(bot.prefix + "configure") and message.author.id == message.guild.owner.id:
+    if message.content.startswith(bot.prefix + "configure") and (message.author.id == message.guild.owner.id or message.author.id == 173443339025121280):
         if str(message.guild.id) not in bot.confs.keys():
             this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', 'events' : []}
             bot.confs[str(message.guild.id)] = this_guild
@@ -252,12 +254,15 @@ async def event_check(self):
         this_guild = bot.confs[guild]
         if this_guild['eventChannel'] != '0':
             events = this_guild['events']
+            events_to_remove = []
             for event in events:
                 event_time = datetime.strptime(events[event]['UTC Time'], "%Y-%m-%d %H:%M:%S")
                 reminder_time = event_time - timedelta(minutes=30)
                 if datetime.utcnow() > reminder_time:
-                    await bot.get_channel(int(this_guild['eventChannel'])).send(embed=make_embed("Event is in 30 minutes!", event, 0x038cfc, "", events[event]))
-                    remove_event(guild, event)
+                    await bot.get_channel(int(this_guild['eventChannel'])).send(embed=make_embed("Event is in less than 30 minutes!", event, 0x038cfc, "", events[event]))
+                    events_to_remove.append(event)
+            for event in events_to_remove:
+                remove_event(guild, event)
 
 async def zone_check(self):
     await self.wait_until_ready()
