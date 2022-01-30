@@ -16,7 +16,7 @@ from discord_slash.model import SlashCommandOptionType
 t = open('token.txt', 'r')
 TOKEN = t.read() 
 t.close()
-bot = commands.Bot(command_prefix="|", intents=discord.Intents.all(), help_command=None)
+bot = commands.Bot(command_prefix="|", intents=discord.Intents.all(), help_command=help())
 slash = SlashCommand(bot, sync_commands=True)
 bot.currentZones = ""
 bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pass', 'Stonewatch']
@@ -32,6 +32,18 @@ bot.servmsg = ""
 bot.lastannounce = ""
 bot.lasterr = ""
 
+# Constants
+bot.QUESTION_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png"
+bot.ANNOUNCE_ICON = "http://tue.nu/misc/announce.png"
+bot.BANNED_ICON = "https://e7.pngegg.com/pngimages/1003/312/png-clipart-hammer-game-pension-review-internet-crouton-hammer-technic-discord-thumbnail.png"
+bot.KICKED_ICON = "https://p7.hiclipart.com/preview/825/776/55/karate-kick-martial-arts-taekwondo-clip-art-kicked-thumbnail.jpg"
+bot.ERROR_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Error.svg/1200px-Error.svg.png"
+bot.ROR_ICON = "http://www.tue.nu/misc/ror.png"
+bot.TIME_STRING = "%Y-%m-%d %H:%M:%S"
+bot.CONFIGURATION = "guilds.txt"
+bot.DESTRO_STRING = ",Destruction\n"
+bot.ORDER_STRING = ",Order\n"
+
 #for if we want to edit announces
 bot.lastAnnounceMessage = {}
 
@@ -43,7 +55,7 @@ async def on_ready():
         print(bot.user.name)
         print(bot.user.id)
         print('------')
-        print(str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")) + ' loading old scrape')
+        print(str(datetime.utcnow().strftime(bot.TIME_STRING)) + ' loading old scrape')
         #load last scrape
         f = open('result.txt', 'r')
         result_string = f.read()
@@ -55,7 +67,7 @@ async def on_ready():
         bot.lastCityTime = l.read()
         l.close()
         #the configurations for the diff disc servers
-        g = open('guilds.txt', 'r')
+        g = open(bot.CONFIGURATION, 'r')
         bot.confs = json.loads(g.read().replace("'", '"'))
         g.close()
         remake = False
@@ -68,7 +80,7 @@ async def on_ready():
                     remake = True
 
         if remake == True:
-            c = open('guilds.txt', 'w')
+            c = open(bot.CONFIGURATION, 'w')
             c.write(str(bot.confs))
             c.close()
 
@@ -97,7 +109,7 @@ async def on_guild_remove(guild):
 @slash.slash(name="help", description="The help command for the bot")
 @bot.command(name='help')
 async def help(ctx):
-    await ctx.send(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png", bot.commandDescriptions))
+    await ctx.send(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, bot.QUESTION_ICON, bot.commandDescriptions))
 
 @slash.slash(name="add", description="Command group to add pings or events", options=[create_option(name="args", description="The arguments for the add command", option_type=SlashCommandOptionType.STRING, required=True)])
 async def addwrapper(ctx: SlashContext, args: str):
@@ -211,7 +223,7 @@ async def announce(ctx, *args):
             if this_guild['enabled'] == '1' and this_guild['announceChannel'] != '0':
                 try:
                     bot.lastAnnounceMessage[guild] = await bot.get_channel(int(this_guild['announceChannel'])).send(
-                        embed=make_embed("Announcement from Natherul", text, 0x00ff00, "http://tue.nu/misc/announce.png",
+                        embed=make_embed("Announcement from Natherul", text, 0x00ff00, bot.ANNOUNCE_ICON,
                                          {}))
                 except:
                     print("announcement channel wrong in: " + this_guild)
@@ -233,7 +245,7 @@ async def configure(ctx, *args):
             await ctx.send("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
             return
         if "help" in args or len(args) == 1:
-            await ctx.send(embed=make_embed("Avilable Configure Commands", "These are the configure commands avilable", 0xfa00f2, "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png", bot.configDesc))
+            await ctx.send(embed=make_embed("Avilable Configure Commands", "These are the configure commands avilable", 0xfa00f2, bot.QUESTION_ICON, bot.configDesc))
             return
         found = False
         text = " ". join(args)
@@ -260,16 +272,17 @@ async def configure(ctx, *args):
                     if found == False:
                         await ctx.send("The parameter you specified was not found, please try again. I accept both names and IDs.")
                         return
-                if command == 'removeAnnounce' or command == 'announceServmsg':
-                    if param != '1' and param != '0':
-                        await ctx.send("The parameter you specified is not accepted. This option can only be 1 or 0 (on or off)")
-                        return
+
+                if (command == 'removeAnnounce' or command == 'announceServmsg') and (param != '1' and param != '0'):
+                    await ctx.send("The parameter you specified is not accepted. This option can only be 1 or 0 (on or off)")
+                    return
+
                 this_guild = bot.confs[str(ctx.guild.id)]
                 this_guild[command] = param
                 bot.confs[str(ctx.guild.id)] = this_guild
                 await ctx.send(command + " is now set to: " + param)
         if found == False:
-            await ctx.send(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png", bot.commandDescriptions))
+            await ctx.send(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, bot.QUESTION_ICON, bot.commandDescriptions))
         else:
             save_conf()
             await ctx.send("Server has been updated")
@@ -289,20 +302,20 @@ async def fortstat(ctx):
 async def debug(ctx):
     this_guild = bot.confs[str(ctx.guild.id)]
     await ctx.send(embed=make_embed("These are the current settings for this server", "", 0xd8de0c,
-                                                "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png",
+                                                bot.QUESTION_ICON,
                                                 this_guild))
 
 @slash.slash(name="editannounce", description="Edit previous announcement. This is only usable by Natherul", options=[create_option(name="args", description="The arguments for the editannounce command", option_type=SlashCommandOptionType.STRING, required=True)])
 async def editannouncewrapper(ctx: SlashContext, message: str):
-    await editAnnounce(ctx, message)
+    await edit_announce(ctx, message)
 
 @bot.command(name='editannounce')
-async def editAnnounce(ctx, *args):
+async def edit_announce(ctx, *args):
     if ctx.author.id == 173443339025121280:
         text = " ".join(args)
         for message in bot.lastAnnounceMessage:
             bot.lastAnnounceMessage[message].edit(
-                embed=make_embed("Announcement from Natherul", text, 0x00ff00, "http://tue.nu/misc/announce.png", {}))
+                embed=make_embed("Announcement from Natherul", text, 0x00ff00, bot.ANNOUNCE_ICON, {}))
         await ctx.send("Announcement updated")
     else:
         await ctx.send("This command is locked to only be useable by Natherul")
@@ -339,10 +352,10 @@ async def on_member_remove(member):
             #this is only the most recent event due to limit set abouve
             if entry.action == discord.AuditLogAction.ban and entry.target.name == member.name:
                 msg = entry.user.name + " banned " + entry.target.name
-                await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Banned", "A user was banned", 0xfa0000, "https://e7.pngegg.com/pngimages/1003/312/png-clipart-hammer-game-pension-review-internet-crouton-hammer-technic-discord-thumbnail.png", {msg : entry.reason}))
+                await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Banned", "A user was banned", 0xfa0000, bot.BANNED_ICON, {msg : entry.reason}))
             if entry.action == discord.AuditLogAction.kick and entry.target.name == member.name:
                 msg = entry.user.name + " kicked " + entry.target.name
-                await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Kicked", "A user was kicked", 0xfa0000, "https://p7.hiclipart.com/preview/825/776/55/karate-kick-martial-arts-taekwondo-clip-art-kicked-thumbnail.jpg", {msg : entry.reason}))
+                await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Kicked", "A user was kicked", 0xfa0000, bot.KICKED_ICON, {msg : entry.reason}))
 
 async def event_check(self):
     for guild in bot.confs:
@@ -351,7 +364,7 @@ async def event_check(self):
             events = this_guild['events']
             events_to_remove = []
             for event in events:
-                event_time = datetime.strptime(events[event]['UTC Time'], "%Y-%m-%d %H:%M:%S")
+                event_time = datetime.strptime(events[event]['UTC Time'], bot.TIME_STRING)
                 reminder_time = event_time - timedelta(minutes=30)
                 if datetime.utcnow() > reminder_time:
                     await bot.get_channel(int(this_guild['eventChannel'])).send(embed=make_embed("Event is in less than 30 minutes!", event, 0x038cfc, "", events[event]))
@@ -363,7 +376,7 @@ async def zone_check(self):
     await self.wait_until_ready()
     while not self.is_closed():
         await event_check(self)
-        now = str(datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
+        now = str(datetime.utcnow().strftime(bot.TIME_STRING))
         skip_city_log = True
         try:
             openzones = soronline.scrape()
@@ -379,7 +392,7 @@ async def zone_check(self):
                     this_guild = bot.confs[guild]
                     try:
                         if this_guild['announceServmsg'] == '1' and this_guild['announceChannel'] != '0':
-                            await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Error.svg/1200px-Error.svg.png", openzones))
+                            await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, bot.ERROR_ICON, openzones))
                     except:
                             await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
                             continue
@@ -397,37 +410,37 @@ async def zone_check(self):
                     if this_guild['announceChannel'] != '0':
                         try:
                             if "Server" in openzones and this_guild['announceServmsg'] == '1':
-                                await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Error.svg/1200px-Error.svg.png", openzones))
+                                await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, bot.ERROR_ICON, openzones))
                             else:
-                                await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Current Zones", "These are the current zones reported by soronline.us", 0xe08a00, "http://www.tue.nu/misc/ror.png", openzones))
+                                await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Current Zones", "These are the current zones reported by soronline.us", 0xe08a00, bot.ROR_ICON, openzones))
                         except:
                             await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
                             print("skipped " + guild)
                             continue
                         for fort in bot.forts:
-                            if fort in openzones.values() and fort not in bot.currentZones.values():
-                                if this_guild['fortPing'] != '0':
+                            if fort in openzones.values() and fort not in bot.currentZones.values() and this_guild[
+                                'fortPing'] != '0':
+                                guild2 = bot.get_guild(int(guild))
+                                try:
+                                    role = get(guild2.roles, id=int(this_guild['fortPing']))
+                                    await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
+                                except:
+                                    await bot.get_guild(int(guild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
+                        for city in bot.cities:
+                            if city in openzones.values() and city not in bot.currentZones.values() and time.time() > float(
+                                    bot.lastCityTime):
+                                bot.lastCityTime = time.time() + 10800 #3 hours
+                                last_time = open('lastcity.txt', 'w')
+                                last_time.write(str(bot.lastCityTime))
+                                last_time.close()
+                                skip_city_log = False
+                                if this_guild['cityPing'] != '0':
                                     guild2 = bot.get_guild(int(guild))
                                     try:
-                                        role = get(guild2.roles, id=int(this_guild['fortPing']))
+                                        role = get(guild2.roles, id=int(this_guild['cityPing']))
                                         await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
                                     except:
-                                        await bot.get_guild(int(guild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
-                        for city in bot.cities:
-                            if city in openzones.values() and city not in bot.currentZones.values():
-                                if time.time() > float(bot.lastCityTime):
-                                    bot.lastCityTime = time.time() + 10800 #3 hours
-                                    last_time = open('lastcity.txt', 'w')
-                                    last_time.write(str(bot.lastCityTime))
-                                    last_time.close()
-                                    skip_city_log = False
-                                    if this_guild['cityPing'] != '0':
-                                        guild2 = bot.get_guild(int(guild))
-                                        try:
-                                            role = get(guild2.roles, id=int(this_guild['cityPing']))
-                                            await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
-                                        except:
-                                            await bot.get_guild(int(guild)).owner.send("I tried to ping for city but failed. Please reconfigure what group to ping")
+                                        await bot.get_guild(int(guild)).owner.send("I tried to ping for city but failed. Please reconfigure what group to ping")
                 #check if a fort happened and is now over
                 for fort in bot.forts:
                     if fort in bot.currentZones.values() and fort not in openzones.values():
@@ -436,34 +449,34 @@ async def zone_check(self):
                         #really really dumb
                         if fort == "Reikwald":
                             if "Praag" in openzones.values():
-                                fortstat.write(now + "," + fort + ",Order\n")
+                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
                             else:
-                                fortstat.write(now + "," + fort + ",Destruction\n")
+                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
                         elif fort == "Shining Way":
                             if "Dragonwake" in openzones.values():
-                                fortstat.write(now + "," + fort + ",Order\n")
+                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
                             else:
-                                fortstat.write(now + "," + fort + ",Destruction\n")
+                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
                         elif fort == "Stonewatch":
                             if "Thunder Mountain" in openzones.values():
-                                fortstat.write(now + "," + fort + ",Order\n")
+                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
                             else:
-                                fortstat.write(now + "," + fort + ",Destruction\n")
+                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
                         elif fort == "The Maw":
                             if "Praag" in openzones.values():
-                                fortstat.write(now + "," + fort + ",Destruction\n")
+                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
                             else:
-                                fortstat.write(now + "," + fort + ",Order\n")
+                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
                         elif fort == "Fell Landing":
                             if "Dragonwake" in openzones.values():
-                                fortstat.write(now + "," + fort + ",Destruction\n")
+                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
                             else:
-                                fortstat.write(now + "," + fort + ",Order\n")
+                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
                         elif fort == "Butchers Pass":
                             if "Thunder Mountain" in openzones.values():
-                                fortstat.write(now + "," + fort + ",Destruction\n")
+                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
                             else:
-                                fortstat.write(now + "," + fort + ",Order\n")
+                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
 
                         fortstat.close()
                 for city in bot.cities:
@@ -491,7 +504,7 @@ def add_event(message, guildid, author):
         event_data = message.split(",")
         if datetime.fromtimestamp(int(event_data[0])) < datetime.utcnow():
             return 1
-        this_event = {'Host' : author.display_name, 'Name' : event_data[1], 'Description' : event_data[2], 'UTC Time' : time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(event_data[0])))}
+        this_event = {'Host' : author.display_name, 'Name' : event_data[1], 'Description' : event_data[2], 'UTC Time' : time.strftime(bot.TIME_STRING, time.gmtime(int(event_data[0])))}
         events[now] = this_event
         this_guild['events'] = events
         bot.confs[str(guildid)] = this_guild
@@ -512,7 +525,7 @@ def remove_event(guildid, id):
     return found
 
 def save_conf():
-    g = open('guilds.txt', 'w')
+    g = open(bot.CONFIGURATION, 'w')
     g.write(str(bot.confs))
     g.close()
 
