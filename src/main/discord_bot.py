@@ -261,7 +261,7 @@ async def configure(ctx, *args):
                         await ctx.send("The parameter you specified was not found, please try again. I accept both names and IDs.")
                         return
                 if command == 'removeAnnounce' or command == 'announceServmsg':
-                    if param != '1' or param != '0':
+                    if param != '1' and param != '0':
                         await ctx.send("The parameter you specified is not accepted. This option can only be 1 or 0 (on or off)")
                         return
                 this_guild = bot.confs[str(ctx.guild.id)]
