@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from datetime import datetime
 from datetime import timedelta
 import discord
@@ -8,15 +9,16 @@ from discord import File
 import json
 import time
 import ast
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord_slash import SlashCommand, SlashContext
 from discord_slash.utils.manage_commands import create_option
 from discord_slash.model import SlashCommandOptionType
+from threading import Thread
 
 t = open('token.txt', 'r')
 TOKEN = t.read() 
 t.close()
-bot = commands.Bot(command_prefix="|", intents=discord.Intents.all(), help_command=help())
+bot = commands.Bot(command_prefix="|", intents=discord.Intents.all(), help_command=None)
 slash = SlashCommand(bot, sync_commands=True)
 bot.currentZones = ""
 bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pass', 'Stonewatch']
@@ -84,7 +86,9 @@ async def on_ready():
             c.write(str(bot.confs))
             c.close()
 
-        await zone_check(bot)
+        print(str(datetime.utcnow().strftime(bot.TIME_STRING)) + ' LOADED')
+        event_check.start(bot)
+        zone_check.start(bot)
 
 @bot.event
 async def on_guild_join(guild):
@@ -108,7 +112,7 @@ async def on_guild_remove(guild):
 
 @slash.slash(name="help", description="The help command for the bot")
 @bot.command(name='help')
-async def help(ctx):
+async def helpmessage(ctx):
     await ctx.send(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, bot.QUESTION_ICON, bot.commandDescriptions))
 
 @slash.slash(name="add", description="Command group to add pings or events", options=[create_option(name="args", description="The arguments for the add command", option_type=SlashCommandOptionType.STRING, required=True)])
@@ -213,6 +217,7 @@ async def list(ctx, arg):
 @slash.slash(name="announce", description="Announce command, only usable by Natherul", options=[create_option(name="message", description="The message to announce", option_type=SlashCommandOptionType.STRING, required=True)])
 async def announcewrapper(ctx: SlashContext, message: str):
     await announce(ctx, message)
+    await ctx.send("Announced: " + message)
 
 @bot.command(name='announce')
 async def announce(ctx, *args):
@@ -331,6 +336,8 @@ async def on_message(message):
         return
     #message is only the prefix so we assume the person needs help
     if message.content == bot.command_prefix:
+        #await helpmessage(message)
+        #return
         message.content = "|help"
     await bot.process_commands(message)
 
@@ -357,6 +364,7 @@ async def on_member_remove(member):
                 msg = entry.user.name + " kicked " + entry.target.name
                 await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Kicked", "A user was kicked", 0xfa0000, bot.KICKED_ICON, {msg : entry.reason}))
 
+@tasks.loop(seconds=60)
 async def event_check(self):
     for guild in bot.confs:
         this_guild = bot.confs[guild]
@@ -372,121 +380,118 @@ async def event_check(self):
             for event in events_to_remove:
                 remove_event(guild, event)
 
+@tasks.loop(seconds=120)
 async def zone_check(self):
     await self.wait_until_ready()
-    while not self.is_closed():
-        await event_check(self)
-        now = str(datetime.utcnow().strftime(bot.TIME_STRING))
-        skip_city_log = True
-        try:
-            openzones = soronline.scrape()
-        except:
-            print(now + " something went wrong")
-            await asyncio.sleep(60) 
-            continue
-        if "Server" in openzones:
-            if bot.servmsg != openzones or bot.lasterr < bot.lastannounce:
-                bot.servmsg = openzones
-                bot.lasterr = now
-                for guild in bot.confs:
-                    this_guild = bot.confs[guild]
-                    try:
-                        if this_guild['announceServmsg'] == '1' and this_guild['announceChannel'] != '0':
-                            await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, bot.ERROR_ICON, openzones))
-                    except:
-                            await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
-                            continue
-            await asyncio.sleep(60)
-
-        else:
-            if len(bot.currentZones) == 0 and len(openzones) > 0:
-                bot.currentZones = openzones
-            elif len(openzones) > 0 and bot.currentZones != openzones:
-                print(now + " sent " + str(openzones) + " to channels")
-                for guild in bot.confs:
-                    this_guild = bot.confs[guild]
-                    if this_guild['enabled'] == '0':
+    now = str(datetime.utcnow().strftime(bot.TIME_STRING))
+    skip_city_log = True
+    try:
+        openzones = soronline.scrape()
+    except:
+        print(now + " something went wrong, soronline might be down")
+        return
+    if "Server" in openzones:
+        if bot.servmsg != openzones or bot.lasterr < bot.lastannounce:
+            bot.servmsg = openzones
+            bot.lasterr = now
+            for guild in bot.confs:
+                this_guild = bot.confs[guild]
+                try:
+                    if this_guild['announceServmsg'] == '1' and this_guild['announceChannel'] != '0':
+                        await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, bot.ERROR_ICON, openzones))
+                except:
+                        await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
                         continue
-                    if this_guild['announceChannel'] != '0':
-                        try:
-                            if "Server" in openzones and this_guild['announceServmsg'] == '1':
-                                await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, bot.ERROR_ICON, openzones))
-                            else:
-                                await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Current Zones", "These are the current zones reported by soronline.us", 0xe08a00, bot.ROR_ICON, openzones))
-                        except:
-                            await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
-                            print("skipped " + guild)
-                            continue
-                        for fort in bot.forts:
-                            if fort in openzones.values() and fort not in bot.currentZones.values() and this_guild[
-                                'fortPing'] != '0':
+        await asyncio.sleep(60)
+
+    else:
+        if len(bot.currentZones) == 0 and len(openzones) > 0:
+            bot.currentZones = openzones
+        elif len(openzones) > 0 and bot.currentZones != openzones:
+            print(now + " sent " + str(openzones) + " to channels")
+            for guild in bot.confs:
+                this_guild = bot.confs[guild]
+                if this_guild['enabled'] == '0':
+                    continue
+                if this_guild['announceChannel'] != '0':
+                    try:
+                        if "Server" in openzones and this_guild['announceServmsg'] == '1':
+                            await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, bot.ERROR_ICON, openzones))
+                        else:
+                            await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Current Zones", "These are the current zones reported by soronline.us", 0xe08a00, bot.ROR_ICON, openzones))
+                    except:
+                        await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
+                        print("skipped " + guild)
+                        continue
+                    for fort in bot.forts:
+                        if fort in openzones.values() and fort not in bot.currentZones.values() and this_guild[
+                            'fortPing'] != '0':
+                            guild2 = bot.get_guild(int(guild))
+                            try:
+                                role = get(guild2.roles, id=int(this_guild['fortPing']))
+                                await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
+                            except:
+                                await bot.get_guild(int(guild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
+                    for city in bot.cities:
+                        if city in openzones.values() and city not in bot.currentZones.values() and time.time() > float(
+                                bot.lastCityTime):
+                            bot.lastCityTime = time.time() + 10800 #3 hours
+                            last_time = open('lastcity.txt', 'w')
+                            last_time.write(str(bot.lastCityTime))
+                            last_time.close()
+                            skip_city_log = False
+                            if this_guild['cityPing'] != '0':
                                 guild2 = bot.get_guild(int(guild))
                                 try:
-                                    role = get(guild2.roles, id=int(this_guild['fortPing']))
+                                    role = get(guild2.roles, id=int(this_guild['cityPing']))
                                     await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
                                 except:
-                                    await bot.get_guild(int(guild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
-                        for city in bot.cities:
-                            if city in openzones.values() and city not in bot.currentZones.values() and time.time() > float(
-                                    bot.lastCityTime):
-                                bot.lastCityTime = time.time() + 10800 #3 hours
-                                last_time = open('lastcity.txt', 'w')
-                                last_time.write(str(bot.lastCityTime))
-                                last_time.close()
-                                skip_city_log = False
-                                if this_guild['cityPing'] != '0':
-                                    guild2 = bot.get_guild(int(guild))
-                                    try:
-                                        role = get(guild2.roles, id=int(this_guild['cityPing']))
-                                        await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
-                                    except:
-                                        await bot.get_guild(int(guild)).owner.send("I tried to ping for city but failed. Please reconfigure what group to ping")
-                #check if a fort happened and is now over
-                for fort in bot.forts:
-                    if fort in bot.currentZones.values() and fort not in openzones.values():
-                    #dumb logic
-                        fortstat = open('fortstat.csv', 'a')
-                        #really really dumb
-                        if fort == "Reikwald":
-                            if "Praag" in openzones.values():
-                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
-                            else:
-                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                        elif fort == "Shining Way":
-                            if "Dragonwake" in openzones.values():
-                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
-                            else:
-                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                        elif fort == "Stonewatch":
-                            if "Thunder Mountain" in openzones.values():
-                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
-                            else:
-                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                        elif fort == "The Maw":
-                            if "Praag" in openzones.values():
-                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                            else:
-                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
-                        elif fort == "Fell Landing":
-                            if "Dragonwake" in openzones.values():
-                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                            else:
-                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
-                        elif fort == "Butchers Pass":
-                            if "Thunder Mountain" in openzones.values():
-                                fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                            else:
-                                fortstat.write(now + "," + fort + bot.ORDER_STRING)
+                                    await bot.get_guild(int(guild)).owner.send("I tried to ping for city but failed. Please reconfigure what group to ping")
+            #check if a fort happened and is now over
+            for fort in bot.forts:
+                if fort in bot.currentZones.values() and fort not in openzones.values():
+                #dumb logic
+                    fortstat = open('fortstat.csv', 'a')
+                    #really really dumb
+                    if fort == "Reikwald":
+                        if "Praag" in openzones.values():
+                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+                        else:
+                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+                    elif fort == "Shining Way":
+                        if "Dragonwake" in openzones.values():
+                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+                        else:
+                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+                    elif fort == "Stonewatch":
+                        if "Thunder Mountain" in openzones.values():
+                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+                        else:
+                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+                    elif fort == "The Maw":
+                        if "Praag" in openzones.values():
+                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+                        else:
+                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+                    elif fort == "Fell Landing":
+                        if "Dragonwake" in openzones.values():
+                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+                        else:
+                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+                    elif fort == "Butchers Pass":
+                        if "Thunder Mountain" in openzones.values():
+                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+                        else:
+                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
 
-                        fortstat.close()
-                for city in bot.cities:
-                    if city in openzones.values() and city not in bot.currentZones.values() and skip_city_log == False:
-                        citystat = open('citystat.csv', 'a')
-                        citystat.write(now + "," + city + "\n")
-                        citystat.close()
-                bot.currentZones = openzones
-                bot.lastannounce = now
-        await asyncio.sleep(60) 
+                    fortstat.close()
+            for city in bot.cities:
+                if city in openzones.values() and city not in bot.currentZones.values() and skip_city_log == False:
+                    citystat = open('citystat.csv', 'a')
+                    citystat.write(now + "," + city + "\n")
+                    citystat.close()
+            bot.currentZones = openzones
+            bot.lastannounce = now
 
 def make_embed(title, description, colour, thumbnail, fields):
     embed_var = discord.Embed(title=title, description=description, color=colour)

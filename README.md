@@ -1,4 +1,7 @@
 # nath-bot
+
+Currently soronline is down so that reporting does not work.
+
 The discord bot that Natherul made with the help from www.soronline.us
 
 If you want to just invite the bot as it is then press the following link:

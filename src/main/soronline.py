@@ -5,25 +5,25 @@ url = 'https://www.soronline.us/api/get.php'
 myobj = {'api': 'ee6bd4a1-6e0b-475b-a4b0-4e18d4a66cb5'}
 
 def scrape():
-    x = requests.post(url, data = myobj).json()
+    x = requests.post(url, data = myob, timeout=10).json()
     data = json.loads(x[0]['data'])
     
     openzones = {}
-    should_write = False
+    shouldWrite = False
     string = ""
     
     if "keeps" in data:
-        should_write = True
+        shouldWrite = True
         for keep in data['keeps']:
             openzones[keep['pname']] = keep['name']
     
     if "forts" in data:
-        should_write = True
+        shouldWrite = True
         for fort in data['forts']:
             openzones[fort['pname']] = fort['name']
     
     if "cities" in data:
-        should_write = True
+        shouldWrite = True
         for city in data['cities']:
             openzones['City'] = city['name']
 
@@ -35,21 +35,21 @@ def scrape():
         destrocount = 0
         ordercount = 0
         for lock in data['zonelocks']:
-            openzones[lock['name']] = "locked by " + lock['owner']
+            openzones[lock['name']] = "Locked by " + lock['owner']
             if lock['owner'] == "Destruction":
                 destrocount = destrocount + 1
             elif lock['owner'] == "Order":
                 ordercount = ordercount + 1
         if destrocount > 1 and "Altdorf" not in openzones:
             openzones['City'] = "Altdorf"
-            should_write = True
+            shouldWrite = True
         elif ordercount > 1 and "Inevitable City" not in openzones:
             openzones['City'] = "Inevitable City"
-            should_write = True
+            shouldWrite = True
 
     if len(openzones) > 0:
         string = str(openzones)
-    if should_write == True:
+    if shouldWrite == True:
         f = open("result.txt", "w")
         f.write(string)
         f.close()
