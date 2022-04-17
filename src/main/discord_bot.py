@@ -13,7 +13,6 @@ from discord.ext import commands, tasks
 from discord_slash import SlashCommand, SlashContext
 from discord_slash.utils.manage_commands import create_option
 from discord_slash.model import SlashCommandOptionType
-from threading import Thread
 
 t = open('token.txt', 'r')
 TOKEN = t.read() 
