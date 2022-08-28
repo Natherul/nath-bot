@@ -2,23 +2,31 @@
 from datetime import datetime
 from datetime import timedelta
 import discord
-import asyncio
+#import asyncio
 from discord.utils import get
-import soronline
+#import soronline
 from discord import File
 import json
 import time
 import ast
-from discord.ext import commands, tasks
-from discord_slash import SlashCommand, SlashContext
-from discord_slash.utils.manage_commands import create_option
-from discord_slash.model import SlashCommandOptionType
+from discord.ext import tasks
+from discord import app_commands
 
 t = open('token.txt', 'r')
 TOKEN = t.read() 
 t.close()
-bot = commands.Bot(command_prefix="|", intents=discord.Intents.all(), help_command=None)
-slash = SlashCommand(bot, sync_commands=True)
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+intents.guild_messages = True
+intents.guilds = True
+intents.messages = True
+intents.dm_messages = True
+intents.bans = True
+
+bot = discord.Client(intents=intents)
+tree = app_commands.CommandTree(bot)
+bot.commandPrefix = "|"
 bot.currentZones = ""
 bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pass', 'Stonewatch']
 bot.cities = ['Inevitable City', 'Altdorf']
@@ -87,7 +95,8 @@ async def on_ready():
 
         print(str(datetime.utcnow().strftime(bot.TIME_STRING)) + ' LOADED')
         event_check.start(bot)
-        zone_check.start(bot)
+        await tree.sync()
+        #zone_check.start(bot)
 
 @bot.event
 async def on_guild_join(guild):
@@ -109,27 +118,27 @@ async def on_guild_remove(guild):
     bot.confs[str(guild.id)] = this_guild
     save_conf()
 
-@slash.slash(name="help", description="The help command for the bot")
-@bot.command(name='help')
+@tree.command(name="help", description="The help command for the bot")
 async def helpmessage(ctx):
-    await ctx.send(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, bot.QUESTION_ICON, bot.commandDescriptions))
+    await ctx.response.send_message(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, bot.QUESTION_ICON, bot.commandDescriptions))
 
-@slash.slash(name="add", description="Command group to add pings or events", options=[create_option(name="args", description="The arguments for the add command", option_type=SlashCommandOptionType.STRING, required=True)])
-async def addwrapper(ctx: SlashContext, args: str):
+# TODO Look over nested commands and replace these wrappers in the future, same for remove and list
+@tree.command(name="add", description="Command group to add pings or events")
+@app_commands.describe(args='The command string')
+async def addwrapper(ctx, args: str):
     await add(ctx, args)
 
-@bot.command(name='add')
 async def add(ctx, *args):
     this_guild = bot.confs[str(ctx.guild.id)]
     if "FortPing" in args:
         if this_guild['fortPing'] != '0':
             try:
                 role = get(ctx.guild.roles, id=int(this_guild['fortPing']))
-                await ctx.guild.get_member(ctx.author.id).add_roles(role)
-                await ctx.send("Role added")
+                await ctx.guild.get_member(ctx.user.id).add_roles(role)
+                await ctx.response.send_message("Role added")
                 if this_guild['logChannel'] != '0':
                     await bot.get_channel(int(this_guild["logChannel"])).send(
-                        "Added " + str(ctx.author.id) + " / " + str(ctx.author.display_name) + " to FortPings")
+                        "Added " + str(ctx.user.id) + " / " + str(ctx.user.display_name) + " to FortPings")
             except:
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when attempting to add a role or when trying to post to the log channel")
@@ -137,41 +146,41 @@ async def add(ctx, *args):
         if this_guild['cityPing'] != '0':
             try:
                 role = get(ctx.guild.roles, id=int(this_guild['cityPing']))
-                await ctx.guild.get_member(ctx.author.id).add_roles(role)
-                await ctx.send("Role added")
+                await ctx.guild.get_member(ctx.user.id).add_roles(role)
+                await ctx.response.send_message("Role added")
                 if this_guild['logChannel'] != '0':
                     await bot.get_channel(int(this_guild["logChannel"])).send(
-                        "Added " + str(ctx.author.id) + " / " + str(ctx.author.display_name) + " to CityPings")
+                        "Added " + str(ctx.user.id) + " / " + str(ctx.user.display_name) + " to CityPings")
             except:
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when attempting to add a role or when trying to post to the log channel")
     elif "Event" in args:
         message = " ".join(args).replace("Event ", "")
         if this_guild['eventChannel'] == '0':
-            await ctx.send("This guild has not set up a channel for events, creating events is disabled.")
-        elif add_event(message, ctx.guild.id, ctx.author) != 0:
-            await ctx.send(
+            await ctx.response.send_message("This guild has not set up a channel for events, creating events is disabled.")
+        elif add_event(message, ctx.guild.id, ctx.user) != 0:
+            await ctx.response.send_message(
                 "Something went wrong when attempting to create an event, please ensure that you formatted the command correct")
         else:
-            await ctx.send("Event added")
+            await ctx.response.send_message("Event added")
 
-@slash.slash(name="remove", description="Command group to remove pings or events", options=[create_option(name="args", description="The arguments for the remove command", option_type=SlashCommandOptionType.STRING, required=True)])
-async def removewrapper(ctx: SlashContext, args: str):
+@tree.command(name="remove", description="Command group to remove pings or events")
+@app_commands.describe(args='The command string')
+async def removewrapper(ctx, args: str):
     await remove(ctx, args)
 
-@bot.command(name='remove')
 async def remove(ctx, *args):
     this_guild = bot.confs[str(ctx.guild.id)]
     if "FortPing" in args:
         if this_guild['fortPing'] != '0':
             try:
                 role = get(ctx.guild.roles, id=int(this_guild['fortPing']))
-                await ctx.guild.get_member(ctx.author.id).remove_roles(role)
-                await ctx.send("Role removed")
+                await ctx.guild.get_member(ctx.user.id).remove_roles(role)
+                await ctx.response.send_message("Role removed")
                 if this_guild['logChannel'] != '0':
                     await bot.get_channel(int(this_guild["logChannel"])).send(
-                        "Removed " + str(ctx.author.id) + " / " + str(
-                            ctx.author.display_name) + " from FortPings")
+                        "Removed " + str(ctx.user.id) + " / " + str(
+                            ctx.user.display_name) + " from FortPings")
             except:
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when either removing a permission from a user or  when trying to post it in the log channel")
@@ -179,48 +188,48 @@ async def remove(ctx, *args):
         if this_guild['cityPing'] != '0':
             try:
                 role = get(ctx.guild.roles, id=int(this_guild['cityPing']))
-                await ctx.guild.get_member(ctx.author.id).remove_roles(role)
-                await ctx.send("Role removed")
+                await ctx.guild.get_member(ctx.user.id).remove_roles(role)
+                await ctx.response.send_message("Role removed")
                 if this_guild['logChannel'] != '0':
                     await bot.get_channel(int(this_guild["logChannel"])).send(
-                        "Removed " + str(ctx.author.id) + " / " + str(
-                        ctx.author.display_name) + " from CityPings")
+                        "Removed " + str(ctx.user.id) + " / " + str(
+                        ctx.user.display_name) + " from CityPings")
             except:
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when either removing a permission from a user or  when trying to post it in the log channel")
     elif "Event" in args:
         message = " ".join(args).replace("Event ", "")
         if remove_event(ctx.guild.id, message) == False:
-            await ctx.send("There is no such event to remove")
+            await ctx.response.send_message("There is no such event to remove")
         else:
-            await ctx.send("Event removed")
+            await ctx.response.send_message("Event removed")
     else:
-        await ctx.send("No such remove option")
+        await ctx.response.send_message("No such remove option")
 
-@slash.slash(name="list", description="Command group to list events", options=[create_option(name="arg", description="The arguments for the list command", option_type=SlashCommandOptionType.STRING, required=True)])
-async def listwrapper(ctx: SlashContext, args: str):
+@tree.command(name="list", description="Command group to list events")
+@app_commands.describe(args='The command string')
+async def listwrapper(ctx, args: str):
     await list(ctx, args)
 
-@bot.command(name='list')
 async def list(ctx, arg):
     this_guild = bot.confs[str(ctx.guild.id)]
     if arg == "Event":
         events = this_guild['events']
         for event in events:
-            await ctx.send(embed=make_embed("Event", event, 0x038cfc, "", events[event]))
+            await ctx.response.send_message(embed=make_embed("Event", event, 0x038cfc, "", events[event]))
         if len(events) == 0:
-            await ctx.send("No events in the database for this server")
+            await ctx.response.send_message("No events in the database for this server")
     else:
-        await ctx.send("Sorry but currently the only thing that can be listed is events")
+        await ctx.response.send_message("Sorry but currently the only thing that can be listed is events")
 
-@slash.slash(name="announce", description="Announce command, only usable by Natherul", options=[create_option(name="message", description="The message to announce", option_type=SlashCommandOptionType.STRING, required=True)])
-async def announcewrapper(ctx: SlashContext, message: str):
-    await announce(ctx, message)
-    await ctx.send("Announced: " + message)
+#@slash.slash(name="announce", description="Announce command, only usable by Natherul", options=[create_option(name="message", description="The message to announce", option_type=SlashCommandOptionType.STRING, required=True)])
+#async def announcewrapper(ctx: SlashContext, message: str):
+#    await announce(ctx, message)
+#    await ctx.response.send_message("Announced: " + message)
 
-@bot.command(name='announce')
+#@bot.command(name='announce')
 async def announce(ctx, *args):
-    if ctx.author.id == 173443339025121280:
+    if ctx.user.id == 173443339025121280:
         text = " ".join(args)
         for guild in bot.confs:
             this_guild = bot.confs[guild]
@@ -231,25 +240,25 @@ async def announce(ctx, *args):
                                          {}))
                 except:
                     print("announcement channel wrong in: " + this_guild)
-        await ctx.send("Announcement sent")
+        await ctx.response.send_message("Announcement sent")
     else:
-        await ctx.send("This command is locked to only be useable by Natherul")
+        await ctx.response.send_message("This command is locked to only be useable by Natherul")
 
-@slash.slash(name="configure", description="Configure commands, this helps you set up your server with the bot", options=[create_option(name="args", description="The arguments for the configure command", option_type=SlashCommandOptionType.STRING, required=True)])
-async def configurewrapper(ctx: SlashContext, args: str):
+@tree.command(name="configure", description="Command group to configure the bot on your server")
+@app_commands.describe(args='The command string')
+async def configurewrapper(ctx, args: str):
     await configure(ctx, args)
 
-@bot.command(name='configure')
 async def configure(ctx, *args):
-    if ctx.author.id == ctx.guild.owner.id or ctx.author.id == 173443339025121280:
+    if ctx.user.id == ctx.guild.owner.id or ctx.user.id == 173443339025121280:
         if str(ctx.guild.id) not in bot.confs.keys():
             this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', 'events' : []}
             bot.confs[str(ctx.guild.id)] = this_guild
             save_conf()
-            await ctx.send("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
+            await ctx.response.send_message("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
             return
         if "help" in args or len(args) == 1:
-            await ctx.send(embed=make_embed("Avilable Configure Commands", "These are the configure commands avilable", 0xfa00f2, bot.QUESTION_ICON, bot.configDesc))
+            await ctx.response.send_message(embed=make_embed("Avilable Configure Commands", "These are the configure commands avilable", 0xfa00f2, bot.QUESTION_ICON, bot.configDesc))
             return
         found = False
         text = " ". join(args)
@@ -274,55 +283,52 @@ async def configure(ctx, *args):
                                 found = True
 
                     if found == False:
-                        await ctx.send("The parameter you specified was not found, please try again. I accept both names and IDs.")
+                        await ctx.response.send_message("The parameter you specified was not found, please try again. I accept both names and IDs.")
                         return
 
                 if (command == 'removeAnnounce' or command == 'announceServmsg') and (param != '1' and param != '0'):
-                    await ctx.send("The parameter you specified is not accepted. This option can only be 1 or 0 (on or off)")
+                    await ctx.response.send_message("The parameter you specified is not accepted. This option can only be 1 or 0 (on or off)")
                     return
 
                 this_guild = bot.confs[str(ctx.guild.id)]
                 this_guild[command] = param
                 bot.confs[str(ctx.guild.id)] = this_guild
-                await ctx.send(command + " is now set to: " + param)
+                await ctx.response.send_message(command + " is now set to: " + param)
         if found == False:
-            await ctx.send(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, bot.QUESTION_ICON, bot.commandDescriptions))
+            await ctx.response.send_message(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, bot.QUESTION_ICON, bot.commandDescriptions))
         else:
             save_conf()
-            await ctx.send("Server has been updated")
+            await ctx.response.send_message("Server has been updated")
 
-@slash.slash(name="citystat", description="Command to return the stats for cities in RoR")
-@bot.command(name='citystat')
+@tree.command(name="citystat", description="Command to return the stats for cities in RoR")
 async def citystat(ctx):
-    await ctx.send("Current gathered stats for cities", file=File('citystat.csv'))
+    await ctx.response.send_message("Current gathered stats for cities", file=File('citystat.csv'))
 
-@slash.slash(name="fortstat", description="Command to return the stats for forts in RoR")
-@bot.command(name='fortstat')
+@tree.command(name="fortstat", description="Command to return the stats for forts in RoR")
 async def fortstat(ctx):
-    await ctx.send("Current gathered stats for forts", file=File('fortstat.csv'))
+    await ctx.response.send_message("Current gathered stats for forts", file=File('fortstat.csv'))
 
-@slash.slash(name="debug", description="Debug command")
-@bot.command(name='debug')
+@tree.command(name="debug", description="Debug command to print information that Nath will want to troubleshoot issues")
 async def debug(ctx):
     this_guild = bot.confs[str(ctx.guild.id)]
-    await ctx.send(embed=make_embed("These are the current settings for this server", "", 0xd8de0c,
+    await ctx.response.send_message(embed=make_embed("These are the current settings for this server", "", 0xd8de0c,
                                                 bot.QUESTION_ICON,
                                                 this_guild))
 
-@slash.slash(name="editannounce", description="Edit previous announcement. This is only usable by Natherul", options=[create_option(name="args", description="The arguments for the editannounce command", option_type=SlashCommandOptionType.STRING, required=True)])
-async def editannouncewrapper(ctx: SlashContext, message: str):
-    await edit_announce(ctx, message)
+#@slash.slash(name="editannounce", description="Edit previous announcement. This is only usable by Natherul", options=[create_option(name="args", description="The arguments for the editannounce command", option_type=SlashCommandOptionType.STRING, required=True)])
+#async def editannouncewrapper(ctx: SlashContext, message: str):
+#    await edit_announce(ctx, message)
 
-@bot.command(name='editannounce')
+#@bot.command(name='editannounce')
 async def edit_announce(ctx, *args):
-    if ctx.author.id == 173443339025121280:
+    if ctx.user.id == 173443339025121280:
         text = " ".join(args)
         for message in bot.lastAnnounceMessage:
             bot.lastAnnounceMessage[message].edit(
                 embed=make_embed("Announcement from Natherul", text, 0x00ff00, bot.ANNOUNCE_ICON, {}))
-        await ctx.send("Announcement updated")
+        await ctx.response.send_message("Announcement updated")
     else:
-        await ctx.send("This command is locked to only be useable by Natherul")
+        await ctx.response.send_message("This command is locked to only be useable by Natherul")
 
 @bot.event
 async def on_message(message):
@@ -330,15 +336,9 @@ async def on_message(message):
     if message.author.id == bot.user.id:
         return
     #do not allow PMs to the bot
-    if "Direct Message" in str(message.channel):
+    elif "Direct Message" in str(message.channel):
         await message.author.send("im sorry but I do not respond to DMs.\nhttps://www.youtube.com/watch?v=agUaHwxcXHY")
         return
-    #message is only the prefix so we assume the person needs help
-    if message.content == bot.command_prefix:
-        #await helpmessage(message)
-        #return
-        message.content = "|help"
-    await bot.process_commands(message)
 
 @bot.event
 async def on_member_join(member):
@@ -379,118 +379,118 @@ async def event_check(self):
             for event in events_to_remove:
                 remove_event(guild, event)
 
-@tasks.loop(seconds=120)
-async def zone_check(self):
-    await self.wait_until_ready()
-    now = str(datetime.utcnow().strftime(bot.TIME_STRING))
-    skip_city_log = True
-    try:
-        openzones = soronline.scrape()
-    except:
-        print(now + " something went wrong, soronline might be down")
-        return
-    if "Server" in openzones:
-        if bot.servmsg != openzones or bot.lasterr < bot.lastannounce:
-            bot.servmsg = openzones
-            bot.lasterr = now
-            for guild in bot.confs:
-                this_guild = bot.confs[guild]
-                try:
-                    if this_guild['announceServmsg'] == '1' and this_guild['announceChannel'] != '0':
-                        await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, bot.ERROR_ICON, openzones))
-                except:
-                        await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
-                        continue
-        await asyncio.sleep(60)
-
-    else:
-        if len(bot.currentZones) == 0 and len(openzones) > 0:
-            bot.currentZones = openzones
-        elif len(openzones) > 0 and bot.currentZones != openzones:
-            print(now + " sent " + str(openzones) + " to channels")
-            for guild in bot.confs:
-                this_guild = bot.confs[guild]
-                if this_guild['enabled'] == '0':
-                    continue
-                if this_guild['announceChannel'] != '0':
-                    try:
-                        if "Server" in openzones and this_guild['announceServmsg'] == '1':
-                            await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, bot.ERROR_ICON, openzones))
-                        else:
-                            await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Current Zones", "These are the current zones reported by soronline.us", 0xe08a00, bot.ROR_ICON, openzones))
-                    except:
-                        await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
-                        print("skipped " + guild)
-                        continue
-                    for fort in bot.forts:
-                        if fort in openzones.values() and fort not in bot.currentZones.values() and this_guild[
-                            'fortPing'] != '0':
-                            guild2 = bot.get_guild(int(guild))
-                            try:
-                                role = get(guild2.roles, id=int(this_guild['fortPing']))
-                                await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
-                            except:
-                                await bot.get_guild(int(guild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
-                    for city in bot.cities:
-                        if city in openzones.values() and city not in bot.currentZones.values() and time.time() > float(
-                                bot.lastCityTime):
-                            bot.lastCityTime = time.time() + 10800 #3 hours
-                            last_time = open('lastcity.txt', 'w')
-                            last_time.write(str(bot.lastCityTime))
-                            last_time.close()
-                            skip_city_log = False
-                            if this_guild['cityPing'] != '0':
-                                guild2 = bot.get_guild(int(guild))
-                                try:
-                                    role = get(guild2.roles, id=int(this_guild['cityPing']))
-                                    await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
-                                except:
-                                    await bot.get_guild(int(guild)).owner.send("I tried to ping for city but failed. Please reconfigure what group to ping")
-            #check if a fort happened and is now over
-            for fort in bot.forts:
-                if fort in bot.currentZones.values() and fort not in openzones.values():
-                #dumb logic
-                    fortstat = open('fortstat.csv', 'a')
-                    #really really dumb
-                    if fort == "Reikwald":
-                        if "Praag" in openzones.values():
-                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
-                        else:
-                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                    elif fort == "Shining Way":
-                        if "Dragonwake" in openzones.values():
-                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
-                        else:
-                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                    elif fort == "Stonewatch":
-                        if "Thunder Mountain" in openzones.values():
-                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
-                        else:
-                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                    elif fort == "The Maw":
-                        if "Praag" in openzones.values():
-                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                        else:
-                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
-                    elif fort == "Fell Landing":
-                        if "Dragonwake" in openzones.values():
-                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                        else:
-                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
-                    elif fort == "Butchers Pass":
-                        if "Thunder Mountain" in openzones.values():
-                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
-                        else:
-                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
-
-                    fortstat.close()
-            for city in bot.cities:
-                if city in openzones.values() and city not in bot.currentZones.values() and skip_city_log == False:
-                    citystat = open('citystat.csv', 'a')
-                    citystat.write(now + "," + city + "\n")
-                    citystat.close()
-            bot.currentZones = openzones
-            bot.lastannounce = now
+#@tasks.loop(seconds=120)
+#async def zone_check(self):
+#    await self.wait_until_ready()
+#    now = str(datetime.utcnow().strftime(bot.TIME_STRING))
+#    skip_city_log = True
+#    try:
+#        openzones = soronline.scrape()
+#    except:
+#        print(now + " something went wrong, soronline might be down")
+#        return
+#    if "Server" in openzones:
+#        if bot.servmsg != openzones or bot.lasterr < bot.lastannounce:
+#            bot.servmsg = openzones
+#            bot.lasterr = now
+#            for guild in bot.confs:
+#                this_guild = bot.confs[guild]
+#                try:
+#                    if this_guild['announceServmsg'] == '1' and this_guild['announceChannel'] != '0':
+#                        await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, bot.ERROR_ICON, openzones))
+#                except:
+#                        await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
+#                        continue
+#        await asyncio.sleep(60)
+#
+#    else:
+#        if len(bot.currentZones) == 0 and len(openzones) > 0:
+#            bot.currentZones = openzones
+#        elif len(openzones) > 0 and bot.currentZones != openzones:
+#            print(now + " sent " + str(openzones) + " to channels")
+#            for guild in bot.confs:
+#                this_guild = bot.confs[guild]
+#                if this_guild['enabled'] == '0':
+#                    continue
+#                if this_guild['announceChannel'] != '0':
+#                    try:
+#                        if "Server" in openzones and this_guild['announceServmsg'] == '1':
+#                            await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Error", "soronline.us is reporting the following error", 0xff0000, bot.ERROR_ICON, openzones))
+#                        else:
+#                            await bot.get_channel(int(this_guild["announceChannel"])).send(embed=make_embed("Current Zones", "These are the current zones reported by soronline.us", 0xe08a00, bot.ROR_ICON, openzones))
+#                    except:
+#                        await bot.get_guild(int(guild)).owner.send("I tried to announce the current zones but failed. Please reconfigure what channel to send announcements to.")
+#                        print("skipped " + guild)
+#                        continue
+#                    for fort in bot.forts:
+#                        if fort in openzones.values() and fort not in bot.currentZones.values() and this_guild[
+#                            'fortPing'] != '0':
+#                            guild2 = bot.get_guild(int(guild))
+#                            try:
+#                                role = get(guild2.roles, id=int(this_guild['fortPing']))
+#                                await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
+#                            except:
+#                                await bot.get_guild(int(guild)).owner.send("I tried to ping for fortresses but failed. Please reconfigure what group to ping")
+#                    for city in bot.cities:
+#                        if city in openzones.values() and city not in bot.currentZones.values() and time.time() > float(
+#                                bot.lastCityTime):
+#                            bot.lastCityTime = time.time() + 10800 #3 hours
+#                            last_time = open('lastcity.txt', 'w')
+#                            last_time.write(str(bot.lastCityTime))
+#                            last_time.close()
+#                            skip_city_log = False
+#                            if this_guild['cityPing'] != '0':
+#                                guild2 = bot.get_guild(int(guild))
+#                                try:
+#                                    role = get(guild2.roles, id=int(this_guild['cityPing']))
+#                                    await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
+#                                except:
+#                                    await bot.get_guild(int(guild)).owner.send("I tried to ping for city but failed. Please reconfigure what group to ping")
+#            #check if a fort happened and is now over
+#            for fort in bot.forts:
+#                if fort in bot.currentZones.values() and fort not in openzones.values():
+#                #dumb logic
+#                    fortstat = open('fortstat.csv', 'a')
+#                    #really really dumb
+#                    if fort == "Reikwald":
+#                        if "Praag" in openzones.values():
+#                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+#                        else:
+#                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+#                    elif fort == "Shining Way":
+#                        if "Dragonwake" in openzones.values():
+#                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+#                        else:
+#                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+#                    elif fort == "Stonewatch":
+#                        if "Thunder Mountain" in openzones.values():
+#                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+#                        else:
+#                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+#                    elif fort == "The Maw":
+#                        if "Praag" in openzones.values():
+#                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+#                        else:
+#                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+#                    elif fort == "Fell Landing":
+#                        if "Dragonwake" in openzones.values():
+#                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+#                        else:
+#                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+#                    elif fort == "Butchers Pass":
+#                        if "Thunder Mountain" in openzones.values():
+#                            fortstat.write(now + "," + fort + bot.DESTRO_STRING)
+#                        else:
+#                            fortstat.write(now + "," + fort + bot.ORDER_STRING)
+#
+#                    fortstat.close()
+#            for city in bot.cities:
+#                if city in openzones.values() and city not in bot.currentZones.values() and skip_city_log == False:
+#                    citystat = open('citystat.csv', 'a')
+#                    citystat.write(now + "," + city + "\n")
+#                    citystat.close()
+#            bot.currentZones = openzones
+#            bot.lastannounce = now
 
 def make_embed(title, description, colour, thumbnail, fields):
     embed_var = discord.Embed(title=title, description=description, color=colour)
@@ -500,7 +500,7 @@ def make_embed(title, description, colour, thumbnail, fields):
         embed_var.add_field(name=entry, value=fields[entry], inline=False)
     return embed_var
 
-def add_event(message, guildid, author):
+def add_event(message, guildid, user):
     now = str(time.time()).split('.')[0]
     this_guild = bot.confs[str(guildid)]
     events = this_guild['events']
@@ -508,7 +508,7 @@ def add_event(message, guildid, author):
         event_data = message.split(",")
         if datetime.fromtimestamp(int(event_data[0])) < datetime.utcnow():
             return 1
-        this_event = {'Host' : author.display_name, 'Name' : event_data[1], 'Description' : event_data[2], 'UTC Time' : time.strftime(bot.TIME_STRING, time.gmtime(int(event_data[0])))}
+        this_event = {'Host' : user.display_name, 'Name' : event_data[1], 'Description' : event_data[2], 'UTC Time' : time.strftime(bot.TIME_STRING, time.gmtime(int(event_data[0])))}
         events[now] = this_event
         this_guild['events'] = events
         bot.confs[str(guildid)] = this_guild
