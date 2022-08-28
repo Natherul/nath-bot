@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from datetime import datetime
 from datetime import timedelta
+from typing import Literal, Optional
 import discord
 #import asyncio
 from discord.utils import get
@@ -11,6 +12,7 @@ import time
 import ast
 from discord.ext import tasks
 from discord import app_commands
+
 
 t = open('token.txt', 'r')
 TOKEN = t.read() 
@@ -26,8 +28,8 @@ intents.bans = True
 
 bot = discord.Client(intents=intents)
 tree = app_commands.CommandTree(bot)
-bot.commandPrefix = "|"
 bot.currentZones = ""
+bot.TUE = 173443661713899521
 bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pass', 'Stonewatch']
 bot.cities = ['Inevitable City', 'Altdorf']
 bot.started = False
@@ -53,7 +55,7 @@ bot.CONFIGURATION = "guilds.txt"
 bot.DESTRO_STRING = ",Destruction\n"
 bot.ORDER_STRING = ",Order\n"
 
-#for if we want to edit announces
+# for if we want to edit announces
 bot.lastAnnounceMessage = {}
 
 @bot.event
@@ -65,17 +67,17 @@ async def on_ready():
         print(bot.user.id)
         print('------')
         print(str(datetime.utcnow().strftime(bot.TIME_STRING)) + ' loading old scrape')
-        #load last scrape
+        # load last scrape
         f = open('result.txt', 'r')
         result_string = f.read()
         if result_string != "":
             bot.currentZones = ast.literal_eval(result_string)
         f.close()
-        #used to make sure to not spam cityping and city stats
+        # used to make sure to not spam cityping and city stats
         l = open('lastcity.txt', 'r')
         bot.lastCityTime = l.read()
         l.close()
-        #the configurations for the diff disc servers
+        # the configurations for the diff disc servers
         g = open(bot.CONFIGURATION, 'r')
         bot.confs = json.loads(g.read().replace("'", '"'))
         g.close()
@@ -88,15 +90,17 @@ async def on_ready():
                     bot.confs[str(guild)] = this_guild
                     remake = True
 
-        if remake == True:
+        if remake:
             c = open(bot.CONFIGURATION, 'w')
             c.write(str(bot.confs))
             c.close()
 
         print(str(datetime.utcnow().strftime(bot.TIME_STRING)) + ' LOADED')
         event_check.start(bot)
-        await tree.sync()
         #zone_check.start(bot)
+        await tree.sync()
+        await tree.sync(guild=discord.Object(id=bot.TUE))
+
 
 @bot.event
 async def on_guild_join(guild):
@@ -111,6 +115,7 @@ async def on_guild_join(guild):
         save_conf()
     await guild.owner.send('Thanks for inviting me to the server. To get started you need to set up what channels I should talk to when announcing. Do this by:\n"' + bot.command_prefix + 'configure" in any channel in the guild and I will respond with your options.\nYou can at any time also issue: "' + bot.command_prefix + 'help" to see what commands are avilable.')
 
+
 @bot.event
 async def on_guild_remove(guild):
     this_guild = bot.confs[str(guild.id)]
@@ -118,19 +123,21 @@ async def on_guild_remove(guild):
     bot.confs[str(guild.id)] = this_guild
     save_conf()
 
+
 @tree.command(name="help", description="The help command for the bot")
 async def helpmessage(ctx):
     await ctx.response.send_message(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, bot.QUESTION_ICON, bot.commandDescriptions))
 
-# TODO Look over nested commands and replace these wrappers in the future, same for remove and list
-@tree.command(name="add", description="Command group to add pings or events")
-@app_commands.describe(args='The command string')
-async def addwrapper(ctx, args: str):
-    await add(ctx, args)
 
-async def add(ctx, *args):
+@tree.command(name="add", description="Command group to add pings or events")
+@app_commands.describe(type="What to add", args="Event parameters")
+async def addwrapper(ctx, type: Literal['FortPing', 'CityPing', 'Event'], args: Optional[str]):
+    await add(ctx, args, type)
+
+
+async def add(ctx, args, type):
     this_guild = bot.confs[str(ctx.guild.id)]
-    if "FortPing" in args:
+    if "FortPing" == type:
         if this_guild['fortPing'] != '0':
             try:
                 role = get(ctx.guild.roles, id=int(this_guild['fortPing']))
@@ -142,7 +149,7 @@ async def add(ctx, *args):
             except:
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when attempting to add a role or when trying to post to the log channel")
-    elif "CityPing" in args:
+    elif "CityPing" == type:
         if this_guild['cityPing'] != '0':
             try:
                 role = get(ctx.guild.roles, id=int(this_guild['cityPing']))
@@ -154,24 +161,27 @@ async def add(ctx, *args):
             except:
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when attempting to add a role or when trying to post to the log channel")
-    elif "Event" in args:
-        message = " ".join(args).replace("Event ", "")
-        if this_guild['eventChannel'] == '0':
+    elif "Event" == type:
+        if args is None:
+            await ctx.response.send_message("When adding an even you need to add the parameters in a comma seperated way. Epoch,Hoster,EventName. Example: 1624723200,Testing,Testevent")
+        elif this_guild['eventChannel'] == '0':
             await ctx.response.send_message("This guild has not set up a channel for events, creating events is disabled.")
-        elif add_event(message, ctx.guild.id, ctx.user) != 0:
+        elif add_event(args, ctx.guild.id, ctx.user) != 0:
             await ctx.response.send_message(
                 "Something went wrong when attempting to create an event, please ensure that you formatted the command correct")
         else:
             await ctx.response.send_message("Event added")
 
-@tree.command(name="remove", description="Command group to remove pings or events")
-@app_commands.describe(args='The command string')
-async def removewrapper(ctx, args: str):
-    await remove(ctx, args)
 
-async def remove(ctx, *args):
+@tree.command(name="remove", description="Command group to remove pings or events")
+@app_commands.describe(type="What to remove", args="Event parameters")
+async def removewrapper(ctx, type: Literal['FortPing', 'CityPing', 'Event'], args: Optional[str]):
+    await remove(ctx, args, type)
+
+
+async def remove(ctx, args, type):
     this_guild = bot.confs[str(ctx.guild.id)]
-    if "FortPing" in args:
+    if "FortPing" == type:
         if this_guild['fortPing'] != '0':
             try:
                 role = get(ctx.guild.roles, id=int(this_guild['fortPing']))
@@ -184,7 +194,7 @@ async def remove(ctx, *args):
             except:
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when either removing a permission from a user or  when trying to post it in the log channel")
-    elif "CityPing" in args:
+    elif "CityPing" == type:
         if this_guild['cityPing'] != '0':
             try:
                 role = get(ctx.guild.roles, id=int(this_guild['cityPing']))
@@ -197,19 +207,22 @@ async def remove(ctx, *args):
             except:
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when either removing a permission from a user or  when trying to post it in the log channel")
-    elif "Event" in args:
-        message = " ".join(args).replace("Event ", "")
-        if remove_event(ctx.guild.id, message) == False:
+    elif "Event" == type:
+        if args is None:
+            await ctx.response.send_message("When removing an event you need to specify the id which can be found using list command")
+        elif not remove_event(ctx.guild.id, args):
             await ctx.response.send_message("There is no such event to remove")
         else:
             await ctx.response.send_message("Event removed")
     else:
         await ctx.response.send_message("No such remove option")
 
+
 @tree.command(name="list", description="Command group to list events")
-@app_commands.describe(args='The command string')
-async def listwrapper(ctx, args: str):
-    await list(ctx, args)
+@app_commands.describe(type="What to list")
+async def listwrapper(ctx, type: Literal['Event']):
+    await list(ctx, type)
+
 
 async def list(ctx, arg):
     this_guild = bot.confs[str(ctx.guild.id)]
@@ -222,12 +235,13 @@ async def list(ctx, arg):
     else:
         await ctx.response.send_message("Sorry but currently the only thing that can be listed is events")
 
-#@slash.slash(name="announce", description="Announce command, only usable by Natherul", options=[create_option(name="message", description="The message to announce", option_type=SlashCommandOptionType.STRING, required=True)])
-#async def announcewrapper(ctx: SlashContext, message: str):
-#    await announce(ctx, message)
-#    await ctx.response.send_message("Announced: " + message)
 
-#@bot.command(name='announce')
+@tree.command(name="announce", description="Announce things through all servers the bot is present on", guild=discord.Object(id=bot.TUE))
+async def announcewrapper(ctx, message: str):
+    await announce(ctx, message)
+    await ctx.response.send_message("Announced: " + message)
+
+
 async def announce(ctx, *args):
     if ctx.user.id == 173443339025121280:
         text = " ".join(args)
@@ -239,15 +253,18 @@ async def announce(ctx, *args):
                         embed=make_embed("Announcement from Natherul", text, 0x00ff00, bot.ANNOUNCE_ICON,
                                          {}))
                 except:
-                    print("announcement channel wrong in: " + this_guild)
+                    print("announcement channel wrong in: " + str(this_guild))
         await ctx.response.send_message("Announcement sent")
     else:
         await ctx.response.send_message("This command is locked to only be useable by Natherul")
 
+
+# TODO: Convert this to also use Optionals and Literals
 @tree.command(name="configure", description="Command group to configure the bot on your server")
 @app_commands.describe(args='The command string')
 async def configurewrapper(ctx, args: str):
     await configure(ctx, args)
+
 
 async def configure(ctx, *args):
     if ctx.user.id == ctx.guild.owner.id or ctx.user.id == 173443339025121280:
@@ -300,13 +317,16 @@ async def configure(ctx, *args):
             save_conf()
             await ctx.response.send_message("Server has been updated")
 
+
 @tree.command(name="citystat", description="Command to return the stats for cities in RoR")
 async def citystat(ctx):
     await ctx.response.send_message("Current gathered stats for cities", file=File('citystat.csv'))
 
+
 @tree.command(name="fortstat", description="Command to return the stats for forts in RoR")
 async def fortstat(ctx):
     await ctx.response.send_message("Current gathered stats for forts", file=File('fortstat.csv'))
+
 
 @tree.command(name="debug", description="Debug command to print information that Nath will want to troubleshoot issues")
 async def debug(ctx):
@@ -315,11 +335,12 @@ async def debug(ctx):
                                                 bot.QUESTION_ICON,
                                                 this_guild))
 
-#@slash.slash(name="editannounce", description="Edit previous announcement. This is only usable by Natherul", options=[create_option(name="args", description="The arguments for the editannounce command", option_type=SlashCommandOptionType.STRING, required=True)])
-#async def editannouncewrapper(ctx: SlashContext, message: str):
-#    await edit_announce(ctx, message)
 
-#@bot.command(name='editannounce')
+@tree.command(name="editannounce", description="Edit previous announcement", guild=discord.Object(id=bot.TUE))
+async def editannouncewrapper(ctx, message: str):
+    await edit_announce(ctx, message)
+
+
 async def edit_announce(ctx, *args):
     if ctx.user.id == 173443339025121280:
         text = " ".join(args)
@@ -330,15 +351,17 @@ async def edit_announce(ctx, *args):
     else:
         await ctx.response.send_message("This command is locked to only be useable by Natherul")
 
+
 @bot.event
 async def on_message(message):
-    #do not listen to bots own messages
+    # do not listen to bots own messages
     if message.author.id == bot.user.id:
         return
-    #do not allow PMs to the bot
+    # do not allow PMs to the bot
     elif "Direct Message" in str(message.channel):
         await message.author.send("im sorry but I do not respond to DMs.\nhttps://www.youtube.com/watch?v=agUaHwxcXHY")
         return
+
 
 @bot.event
 async def on_member_join(member):
@@ -349,19 +372,21 @@ async def on_member_join(member):
         except:
             await bot.get_guild(int(member.guild.id)).owner.send("I tried to send a welcome message in the boarding channel but failed. Please reconfigure what channel to send welcomes to.")
 
+
 @bot.event
 async def on_member_remove(member):
     guild = bot.confs[str(member.guild.id)]
     if guild['removeAnnounce'] != '0' and guild['logChannel'] != '0':
         this_guild = bot.get_guild(member.guild.id) 
         async for entry in this_guild.audit_logs(limit=1):
-            #this is only the most recent event due to limit set abouve
+            # this is only the most recent event due to limit set abouve
             if entry.action == discord.AuditLogAction.ban and entry.target.name == member.name:
                 msg = entry.user.name + " banned " + entry.target.name
                 await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Banned", "A user was banned", 0xfa0000, bot.BANNED_ICON, {msg : entry.reason}))
             if entry.action == discord.AuditLogAction.kick and entry.target.name == member.name:
                 msg = entry.user.name + " kicked " + entry.target.name
                 await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Kicked", "A user was kicked", 0xfa0000, bot.KICKED_ICON, {msg : entry.reason}))
+
 
 @tasks.loop(seconds=60)
 async def event_check(self):
@@ -378,6 +403,7 @@ async def event_check(self):
                     events_to_remove.append(event)
             for event in events_to_remove:
                 remove_event(guild, event)
+
 
 #@tasks.loop(seconds=120)
 #async def zone_check(self):
@@ -446,10 +472,10 @@ async def event_check(self):
 #                                    await bot.get_channel(int(this_guild["announceChannel"])).send(role.mention)
 #                                except:
 #                                    await bot.get_guild(int(guild)).owner.send("I tried to ping for city but failed. Please reconfigure what group to ping")
-#            #check if a fort happened and is now over
+#            # check if a fort happened and is now over
 #            for fort in bot.forts:
 #                if fort in bot.currentZones.values() and fort not in openzones.values():
-#                #dumb logic
+#                # dumb logic
 #                    fortstat = open('fortstat.csv', 'a')
 #                    #really really dumb
 #                    if fort == "Reikwald":
@@ -492,6 +518,7 @@ async def event_check(self):
 #            bot.currentZones = openzones
 #            bot.lastannounce = now
 
+
 def make_embed(title, description, colour, thumbnail, fields):
     embed_var = discord.Embed(title=title, description=description, color=colour)
     if thumbnail != "":
@@ -499,6 +526,7 @@ def make_embed(title, description, colour, thumbnail, fields):
     for entry in fields:
         embed_var.add_field(name=entry, value=fields[entry], inline=False)
     return embed_var
+
 
 def add_event(message, guildid, user):
     now = str(time.time()).split('.')[0]
@@ -517,6 +545,7 @@ def add_event(message, guildid, user):
     except:
         return 1
 
+
 def remove_event(guildid, id):
     this_guild = bot.confs[str(guildid)]
     events = this_guild['events']
@@ -528,9 +557,11 @@ def remove_event(guildid, id):
     save_conf()
     return found
 
+
 def save_conf():
     g = open(bot.CONFIGURATION, 'w')
     g.write(str(bot.confs))
     g.close()
+
 
 bot.run(TOKEN)
