@@ -163,7 +163,7 @@ async def add(ctx, args, type):
                     "Something went wrong when attempting to add a role or when trying to post to the log channel")
     elif "Event" == type:
         if args is None:
-            await ctx.response.send_message("When adding an even you need to add the parameters in a comma seperated way. Epoch,Hoster,EventName. Example: 1624723200,Testing,Testevent")
+            await ctx.response.send_message("When adding an even you need to add the parameters in a comma seperated way. Epoch,EventName,Description. Example: 1624723200,Testing,Testevent")
         elif this_guild['eventChannel'] == '0':
             await ctx.response.send_message("This guild has not set up a channel for events, creating events is disabled.")
         elif add_event(args, ctx.guild.id, ctx.user) != 0:
