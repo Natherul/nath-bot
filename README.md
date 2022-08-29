@@ -7,7 +7,7 @@ The discord bot that Natherul made with the help from www.soronline.us
 If you want to just invite the bot as it is then press the following link:
 https://discord.com/oauth2/authorize?client_id=758718771275497559&scope=bot&permissions=268471296
 
-Once invited you need to configure the bot with the relevant information. Get started with issuing "|configure" in any channel the bot can see.
+Once invited you need to configure the bot with the relevant information. Get started with issuing "/configure" in any channel the bot can see.
 
 **Support**:
 
