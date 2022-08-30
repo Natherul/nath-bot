@@ -236,7 +236,10 @@ async def announce(ctx, message: str):
                         embed=make_embed("Announcement from Natherul", message, 0x00ff00, bot.ANNOUNCE_ICON,
                                          {}))
                 except:
-                    print("announcement channel wrong in: " + str(this_guild))
+                    print("announcement channel wrong in: " + str(this_guild) + " removing the announce channel from it")
+                    this_guild['announceChannel'] = "0"
+                    bot.confs[str(ctx.guild.id)] = this_guild
+                    save_conf()
     else:
         await ctx.response.send_message("This command is locked to only be useable by Natherul")
 
@@ -250,11 +253,9 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
             bot.confs[str(ctx.guild.id)] = this_guild
             save_conf()
             await ctx.response.send_message("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
-            return
-        if option == "help" or args is None:
+        elif option == "help" or args is None:
             await ctx.response.send_message(embed=make_embed("Avilable Configure Commands", "These are the configure commands avilable", 0xfa00f2, bot.QUESTION_ICON, bot.configDesc))
-            return
-        if option == "announceChannel" or option == "logChannel" or option == "boardingChannel" or option == "eventChannel":
+        elif option == "announceChannel" or option == "logChannel" or option == "boardingChannel" or option == "eventChannel":
             tmp_guild = ctx.guild
             tmp_channels = tmp_guild.text_channels
             for channel in tmp_channels:
@@ -266,7 +267,6 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
                     save_conf()
                     return
             await ctx.response.send_message("No channel found with that name or ID")
-            return
         elif option == "fortPing" or option == "cityPing":
             tmp_guild = ctx.guild
             tmp_roles = tmp_guild.roles
@@ -279,18 +279,24 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
                     save_conf()
                     return
             await ctx.response.send_message("No role with that name or ID was found")
-            return
         elif option == "removeAnnounce" or option == "announceServmsg":
             if args != "1" and args != "0":
                 await ctx.response.send_message("For this setting you can only specify it being on (1) or off (0)")
-                return
             else:
                 this_guild = bot.confs[str(ctx.guild.id)]
                 this_guild[option] = args
                 bot.confs[str(ctx.guild.id)] = this_guild
                 await ctx.response.send_message(option + " is now set to: " + args)
                 save_conf()
-                return
+        # Currently this is only welcomeMessage, but it can be set directly.
+        else:
+            this_guild = bot.confs[str(ctx.guild.id)]
+            this_guild[option] = args
+            bot.confs[str(ctx.guild.id)] = this_guild
+            await ctx.response.send_message(option + " is now set to: " + args)
+            save_conf()
+    else:
+        await ctx.response.send_message("You are neither a server owner nor Natherul so configuring the server is not allowed.")
 
 
 @tree.command(name="citystat", description="Command to return the stats for cities in RoR")
@@ -331,7 +337,6 @@ async def on_message(message):
     # do not allow PMs to the bot
     elif "Direct Message" in str(message.channel):
         await message.author.send("im sorry but I do not respond to DMs.\nhttps://www.youtube.com/watch?v=agUaHwxcXHY")
-        return
 
 
 @bot.event
