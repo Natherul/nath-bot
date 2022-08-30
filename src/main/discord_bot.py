@@ -131,11 +131,7 @@ async def helpmessage(ctx):
 
 @tree.command(name="add", description="Command group to add pings or events")
 @app_commands.describe(type="What to add", args="Event parameters")
-async def addwrapper(ctx, type: Literal['FortPing', 'CityPing', 'Event'], args: Optional[str]):
-    await add(ctx, args, type)
-
-
-async def add(ctx, args, type):
+async def add(ctx, type: Literal['FortPing', 'CityPing', 'Event'], args: Optional[str]):
     this_guild = bot.confs[str(ctx.guild.id)]
     if "FortPing" == type:
         if this_guild['fortPing'] != '0':
@@ -175,11 +171,7 @@ async def add(ctx, args, type):
 
 @tree.command(name="remove", description="Command group to remove pings or events")
 @app_commands.describe(type="What to remove", args="Event parameters")
-async def removewrapper(ctx, type: Literal['FortPing', 'CityPing', 'Event'], args: Optional[str]):
-    await remove(ctx, args, type)
-
-
-async def remove(ctx, args, type):
+async def remove(ctx, type: Literal['FortPing', 'CityPing', 'Event'], args: Optional[str]):
     this_guild = bot.confs[str(ctx.guild.id)]
     if "FortPing" == type:
         if this_guild['fortPing'] != '0':
@@ -220,13 +212,9 @@ async def remove(ctx, args, type):
 
 @tree.command(name="list", description="Command group to list events")
 @app_commands.describe(type="What to list")
-async def listwrapper(ctx, type: Literal['Event']):
-    await list(ctx, type)
-
-
-async def list(ctx, arg):
+async def list(ctx, type: Literal['Event']):
     this_guild = bot.confs[str(ctx.guild.id)]
-    if arg == "Event":
+    if type == "Event":
         events = this_guild['events']
         for event in events:
             await ctx.response.send_message(embed=make_embed("Event", event, 0x038cfc, "", events[event]))
@@ -237,36 +225,25 @@ async def list(ctx, arg):
 
 
 @tree.command(name="announce", description="Announce things through all servers the bot is present on", guild=discord.Object(id=bot.TUE))
-async def announcewrapper(ctx, message: str):
-    await announce(ctx, message)
-    await ctx.response.send_message("Announced: " + message)
-
-
-async def announce(ctx, *args):
+@app_commands.describe(message="What to announce")
+async def announce(ctx, message: str):
     if ctx.user.id == 173443339025121280:
-        text = " ".join(args)
         for guild in bot.confs:
             this_guild = bot.confs[guild]
             if this_guild['enabled'] == '1' and this_guild['announceChannel'] != '0':
                 try:
                     bot.lastAnnounceMessage[guild] = await bot.get_channel(int(this_guild['announceChannel'])).send(
-                        embed=make_embed("Announcement from Natherul", text, 0x00ff00, bot.ANNOUNCE_ICON,
+                        embed=make_embed("Announcement from Natherul", message, 0x00ff00, bot.ANNOUNCE_ICON,
                                          {}))
                 except:
                     print("announcement channel wrong in: " + str(this_guild))
-        await ctx.response.send_message("Announcement sent")
     else:
         await ctx.response.send_message("This command is locked to only be useable by Natherul")
 
 
-# TODO: Convert this to also use Optionals and Literals
 @tree.command(name="configure", description="Command group to configure the bot on your server")
-@app_commands.describe(args='The command string')
-async def configurewrapper(ctx, args: str):
-    await configure(ctx, args)
-
-
-async def configure(ctx, *args):
+@app_commands.describe(option="What setting to change", args="The setting for the option")
+async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
     if ctx.user.id == ctx.guild.owner.id or ctx.user.id == 173443339025121280:
         if str(ctx.guild.id) not in bot.confs.keys():
             this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', 'events' : []}
@@ -274,48 +251,46 @@ async def configure(ctx, *args):
             save_conf()
             await ctx.response.send_message("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
             return
-        if "help" in args or len(args) == 1:
+        if option == "help" or args is None:
             await ctx.response.send_message(embed=make_embed("Avilable Configure Commands", "These are the configure commands avilable", 0xfa00f2, bot.QUESTION_ICON, bot.configDesc))
             return
-        found = False
-        text = " ". join(args)
-        for command in bot.configureCommands:
-            if command in text:
-                found = True
-                param = text.replace(command + " ", '')
-                if command == 'announceChannel' or command == 'logChannel' or command == 'boardingChannel' or command == 'fortPing' or command == 'cityPing' or command == 'eventChannel':
-                    tmp_guild = ctx.guild
-                    tmp_channels = tmp_guild.text_channels
-                    tmp_roles = tmp_guild.roles
-                    found = False
-                    if command == 'announceChannel' or command == 'logChannel' or command == 'boardingChannel' or command == 'eventChannel':
-                        for channel in tmp_channels:
-                            if param == str(channel.id) or param == channel.name:
-                                param = str(channel.id)
-                                found = True
-                    else:
-                        for role in tmp_roles:
-                            if param == str(role.id) or param == role.name:
-                                param = str(role.id)
-                                found = True
-
-                    if found == False:
-                        await ctx.response.send_message("The parameter you specified was not found, please try again. I accept both names and IDs.")
-                        return
-
-                if (command == 'removeAnnounce' or command == 'announceServmsg') and (param != '1' and param != '0'):
-                    await ctx.response.send_message("The parameter you specified is not accepted. This option can only be 1 or 0 (on or off)")
+        if option == "announceChannel" or option == "logChannel" or option == "boardingChannel" or option == "eventChannel":
+            tmp_guild = ctx.guild
+            tmp_channels = tmp_guild.text_channels
+            for channel in tmp_channels:
+                if args == str(channel.id) or args == channel.name:
+                    this_guild = bot.confs[str(ctx.guild.id)]
+                    this_guild[option] = args
+                    bot.confs[str(ctx.guild.id)] = this_guild
+                    await ctx.response.send_message(option + " is now set to: " + args)
+                    save_conf()
                     return
-
+            await ctx.response.send_message("No channel found with that name or ID")
+            return
+        elif option == "fortPing" or option == "cityPing":
+            tmp_guild = ctx.guild
+            tmp_roles = tmp_guild.roles
+            for role in tmp_roles:
+                if args == str(role.id) or args == role.name:
+                    this_guild = bot.confs[str(ctx.guild.id)]
+                    this_guild[option] = args
+                    bot.confs[str(ctx.guild.id)] = this_guild
+                    await ctx.response.send_message(option + " is now set to: " + args)
+                    save_conf()
+                    return
+            await ctx.response.send_message("No role with that name or ID was found")
+            return
+        elif option == "removeAnnounce" or option == "announceServmsg":
+            if args != "1" and args != "0":
+                await ctx.response.send_message("For this setting you can only specify it being on (1) or off (0)")
+                return
+            else:
                 this_guild = bot.confs[str(ctx.guild.id)]
-                this_guild[command] = param
+                this_guild[option] = args
                 bot.confs[str(ctx.guild.id)] = this_guild
-                await ctx.response.send_message(command + " is now set to: " + param)
-        if found == False:
-            await ctx.response.send_message(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, bot.QUESTION_ICON, bot.commandDescriptions))
-        else:
-            save_conf()
-            await ctx.response.send_message("Server has been updated")
+                await ctx.response.send_message(option + " is now set to: " + args)
+                save_conf()
+                return
 
 
 @tree.command(name="citystat", description="Command to return the stats for cities in RoR")
@@ -337,16 +312,12 @@ async def debug(ctx):
 
 
 @tree.command(name="editannounce", description="Edit previous announcement", guild=discord.Object(id=bot.TUE))
-async def editannouncewrapper(ctx, message: str):
-    await edit_announce(ctx, message)
-
-
-async def edit_announce(ctx, *args):
+@app_commands.describe(message="What to edit the message to")
+async def edit_announce(ctx, message: str):
     if ctx.user.id == 173443339025121280:
-        text = " ".join(args)
-        for message in bot.lastAnnounceMessage:
-            bot.lastAnnounceMessage[message].edit(
-                embed=make_embed("Announcement from Natherul", text, 0x00ff00, bot.ANNOUNCE_ICON, {}))
+        for old_message in bot.lastAnnounceMessage:
+            bot.lastAnnounceMessage[old_message].edit(
+                embed=make_embed("Announcement from Natherul", message, 0x00ff00, bot.ANNOUNCE_ICON, {}))
         await ctx.response.send_message("Announcement updated")
     else:
         await ctx.response.send_message("This command is locked to only be useable by Natherul")
