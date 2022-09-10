@@ -34,9 +34,9 @@ bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pas
 bot.cities = ['Inevitable City', 'Altdorf']
 bot.started = False
 bot.commandDescriptions = {'configure': 'Commands to configure the bot (these can only be issued by the owner of the discord and there are multiple subcommands here)', 'citystat' : 'Posts the statistics for cities', 'fortstat' : 'Posts the statistics for fortresses', 'add Fortping' : 'Adds you to the group that gets pinged on fortresses', 'add CityPing' : 'Adds you to the group that gets pinged on cities', 'remove FortPing' : 'Removes you from the group that gets pinged in fortresses', 'remove CityPing' : 'Removes you from the group that gets pinged when cities happen', 'add Event' : 'Adds an event to the bot using syntax: "epoch,name,description" (https://www.epochconverter.com/)', 'remove Event' : 'Removes an event with the specified ID', 'list Event' : 'Lists all events for the guild'}
-bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'removeAnnounce', 'announceServmsg', 'eventChannel']
-bot.configDesc = {'announceChannel' : '(String/int)What channel to post campaign to (either Channel name or channelID specified)', 'logChannel' : '(String/int)What channel to pot logs about moderation or role changes (either channel name or channelID specified)', 'welcomeMessage' : '(String)What the bot should greet someone that joins the server with', 'boardingChannel': '(String/int)What channel to post welcome messages to (either channel name or channelID specified)', 'fortPing' : '(String/int)What role to attatch to announcement of campaign when a fort happens (role name or roleID specified)', 'cityPing' : '(String/int)What role to attach to announcement of campagin when a city happens(role name or roleID specified)', 'removeAnnounce' : '(bool as int)If the bot should post in the log channel when someone gets kicked or banned from the server', 'announceServmsg': '(bool as int)If the bot should announce issues or other messages from soronline.us', 'eventChannel' : '(String/int)What channel to post event messages to (either channel name or channelID specified)'}
-bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1', 'removeAnnounce': '0', 'announceServmsg' : '0', "eventChannel" : "0", "events" : {}}
+bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'moderator']
+bot.configDesc = {'announceChannel' : '(String/int)What channel to post campaign to (either Channel name or channelID specified)', 'logChannel' : '(String/int)What channel to pot logs about moderation or role changes (either channel name or channelID specified)', 'welcomeMessage' : '(String)What the bot should greet someone that joins the server with', 'boardingChannel' : '(String/int)What channel to post welcome/leave messages to (either channel name or channelID specified)', 'moderator' : '(String/int)What role to allow moderator commands', 'fortPing' : '(String/int)What role to attatch to announcement of campaign when a fort happens (role name or roleID specified)', 'cityPing' : '(String/int)What role to attach to announcement of campagin when a city happens(role name or roleID specified)', 'removeAnnounce' : '(bool as int)If the bot should post in the log channel when someone gets kicked or banned from the server', 'announceServmsg': '(bool as int)If the bot should announce issues or other messages from soronline.us', 'eventChannel' : '(String/int)What channel to post event messages to (either channel name or channelID specified)'}
+bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1', 'removeAnnounce': '0', 'announceServmsg' : '0', "eventChannel" : "0", "events" : {}, 'moderator' : '0'}
 bot.confs = {}
 bot.lastCityTime = 0
 bot.servmsg = ""
@@ -246,10 +246,10 @@ async def announce(ctx, message: str):
 
 @tree.command(name="configure", description="Command group to configure the bot on your server")
 @app_commands.describe(option="What setting to change", args="The setting for the option")
-async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
+async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'moderator', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
     if ctx.user.id == ctx.guild.owner.id or ctx.user.id == 173443339025121280:
         if str(ctx.guild.id) not in bot.confs.keys():
-            this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', 'events' : []}
+            this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', 'events' : [], 'moderator': '0'}
             bot.confs[str(ctx.guild.id)] = this_guild
             save_conf()
             await ctx.response.send_message("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
@@ -267,7 +267,7 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
                     save_conf()
                     return
             await ctx.response.send_message("No channel found with that name or ID")
-        elif option == "fortPing" or option == "cityPing":
+        elif option == "fortPing" or option == "cityPing" or option == "moderator":
             tmp_guild = ctx.guild
             tmp_roles = tmp_guild.roles
             for role in tmp_roles:
@@ -297,6 +297,59 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
             save_conf()
     else:
         await ctx.response.send_message("You are neither a server owner nor Natherul so configuring the server is not allowed.")
+
+
+@tree.command(name="kick", description="Kick member from the server")
+@app_commands.describe(member="The member to kick", reason="The reason for the kick")
+async def kick_member(ctx, member : discord.Member, reason : str):
+    if member.id == bot.user.id:
+        await ctx.response.send_message("You cannot kick the bot")
+        return
+    this_guild = bot.confs[str(ctx.guild.id)]
+    if not is_mod(ctx.user.roles, this_guild):
+        await ctx.response.send_message("You are not set as moderator and is not allowed to use this command.")
+        return
+    if ctx.guild.owner.id == member.id:
+        await ctx.response.send_message("You cannot kick a server owner")
+        return
+    elif this_guild['logChannel'] != '0':
+        await bot.get_channel(int(this_guild['logChannel'])).send(embed=make_embed("User Kicked", member.display_name + " was kicked by " + ctx.user.display_name, 0xfa0000, bot.KICKED_ICON, {'Reason' : reason}))
+    await member.kick(reason=reason)
+    await ctx.response.send_message("User kicked")
+    
+    
+@tree.command(name="ban", description="Ban member from the server")
+@app_commands.describe(member="The member to ban", reason="The reason for the ban")
+async def ban_member(ctx, member : discord.Member, reason : str):
+    if member.id == bot.user.id:
+        await ctx.response.send_message("You cannot ban the bot")
+        return
+    this_guild = bot.confs[str(ctx.guild.id)]
+    if not is_mod(ctx.user.roles, this_guild):
+        await ctx.response.send_message("You are not set as moderator and is not allowed to use this command.")
+        return
+    if ctx.guild.owner.id == member.id:
+        await ctx.response.send_message("You cannot ban a server owner")
+        return
+    elif this_guild['logChannel'] != '0':
+        await bot.get_channel(int(this_guild['logChannel'])).send(embed=make_embed("User Banned", member.display_name + " was banned by " + ctx.user.display_name, 0xfa0000, bot.BANNED_ICON, {'Reason' : reason}))
+    await member.ban(reason=reason)
+    await ctx.response.send_message("User banned")
+
+
+@tree.command(name="purge", description="Purges a set number of messages from the current channel")
+@app_commands.describe(number="The number of messages to delete", reason="The reason for the purge")
+async def purge(ctx, number : int, reason : str):
+    this_guild = bot.confs[str(ctx.guild.id)]
+    if not is_mod(ctx.user.roles, this_guild):
+        await ctx.response.send_message("You are not set as moderator and is not allowed to use this command.")
+        return
+    messages = [message async for message in ctx.channel.history(limit=number)]
+    await ctx.response.send_message(str(number) + " messages will be purged")
+    await ctx.channel.delete_messages(messages, reason=reason)
+    if this_guild['logChannel'] != '0':
+        message = "{moderator} pruned {channel} of {number} of messages".format(moderator=ctx.user.display_name, number=number, channel=ctx.channel.name)
+        await bot.get_channel(int(this_guild['logChannel'])).send(embed=make_embed("Channel Pruned", message, 0xfa0000, "", {'Reason': reason}))
 
 
 @tree.command(name="citystat", description="Command to return the stats for cities in RoR")
@@ -355,13 +408,58 @@ async def on_member_remove(member):
     if guild['removeAnnounce'] != '0' and guild['logChannel'] != '0':
         this_guild = bot.get_guild(member.guild.id) 
         async for entry in this_guild.audit_logs(limit=1):
-            # this is only the most recent event due to limit set abouve
+            # this is only the most recent event due to limit set above
+            if entry.user.id == bot.user.id:
+                # Bot kicks and bans are already handled in its commands so no need to send it twice.
+                return
             if entry.action == discord.AuditLogAction.ban and entry.target.name == member.name:
                 msg = entry.user.name + " banned " + entry.target.name
-                await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Banned", "A user was banned", 0xfa0000, bot.BANNED_ICON, {msg : entry.reason}))
-            if entry.action == discord.AuditLogAction.kick and entry.target.name == member.name:
+                await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Banned", msg, 0xfa0000, bot.BANNED_ICON, {"Reason" : entry.reason}))
+                return
+            elif entry.action == discord.AuditLogAction.kick and entry.target.name == member.name:
                 msg = entry.user.name + " kicked " + entry.target.name
-                await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Kicked", "A user was kicked", 0xfa0000, bot.KICKED_ICON, {msg : entry.reason}))
+                await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Kicked", msg, 0xfa0000, bot.KICKED_ICON, {"Reason" : entry.reason}))
+                return
+        await bot.get_channel(int(guild["boardingChannel"])).send(member.display_name + "/" + member.id + " has left the server.")
+
+
+@bot.event
+async def on_member_update(before, after):
+    guild = bot.confs[str(before.guild.id)]
+    if guild['logChannel'] == '0':
+        return
+    # A role has been added or removed
+    this_guild = bot.get_guild(before.guild.id)
+    async for entry in this_guild.audit_logs(limit=1):
+        if entry.user.id == bot.user.id:
+            # We always handle logging when the bot does something so this is to not log it twice
+            return
+        elif before.roles != after.roles:
+            if entry.action == discord.AuditLogAction.member_role_update and entry.target.name == after.name:
+                action = " added " if len(after.roles) > len(before.roles) else " removed "
+                role = ""
+                verb = ""
+                for oldRole in before.roles:
+                    if oldRole not in after.roles:
+                        role = oldRole
+                        verb = "from"
+                if role == "":
+                    for newRole in after.roles:
+                        if newRole not in before.roles:
+                            role = newRole
+                            verb = "to"
+                message = "{moderator} {action} {role} {verb} {target}".format(action=action, moderator=entry.user.display_name, target=entry.target.display_name, role=role, verb=verb)
+                await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("Role update", message, 0xfa0000, "", {}))
+                return
+        elif before.display_name != after.display_name:
+            if entry.action == discord.AuditLogAction.member_update and entry.target.name == after.name:
+                message = "{moderator} changed the name of {target} (account name) to {newname}".format(moderator=entry.user.display_name, target=entry.target.name, newname=after.display_name)
+                await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("Name updated", message, 0xfa0000, "", {}))
+                return
+        elif entry.action == discord.AuditLogAction.unban and entry.target.name == after.name:
+            message = "{moderator} unbanned {target} (account name)".format(moderator=entry.user.display_name, target=entry.target.name)
+            await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("Member unbanned", message, 0xfa0000, "", {}))
+            return
 
 
 @tasks.loop(seconds=60)
@@ -493,6 +591,14 @@ async def event_check(self):
 #                    citystat.close()
 #            bot.currentZones = openzones
 #            bot.lastannounce = now
+
+
+def is_mod(userRoles, this_guild):
+    for role in userRoles:
+        if role.name == this_guild['moderator']:
+            return True
+    if not is_mod:
+        return False
 
 
 def make_embed(title, description, colour, thumbnail, fields):
