@@ -54,13 +54,16 @@ bot.TIME_STRING = "%Y-%m-%d %H:%M:%S"
 bot.CONFIGURATION = "guilds.txt"
 bot.DESTRO_STRING = ",Destruction\n"
 bot.ORDER_STRING = ",Order\n"
+bot.NOT_MOD_STRING = "You are not set as moderator and is not allowed to use this command."
 
 # for if we want to edit announces
 bot.lastAnnounceMessage = {}
 
+
 @bot.event
 async def on_ready():
-    if bot.started == False:
+    """Starting method for the bot. This is where the bot loads previous values"""
+    if not bot.started:
         bot.started = True
         print('Logged in as')
         print(bot.user.name)
@@ -104,8 +107,9 @@ async def on_ready():
 
 @bot.event
 async def on_guild_join(guild):
+    """When the bot joins a new server it will configure itself with the values it needs saved"""
     if guild.id not in bot.confs:
-        this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', "events" : {}}
+        this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', 'moderator' : '0', "events" : {}}
         bot.confs[str(guild.id)] = this_guild
         save_conf()
     else:
@@ -113,11 +117,12 @@ async def on_guild_join(guild):
         this_guild['enabled'] = '1'
         bot.confs[str(guild.id)] = this_guild
         save_conf()
-    await guild.owner.send('Thanks for inviting me to the server. To get started you need to set up what channels I should talk to when announcing. Do this by:\n"' + bot.command_prefix + 'configure" in any channel in the guild and I will respond with your options.\nYou can at any time also issue: "' + bot.command_prefix + 'help" to see what commands are avilable.')
+    await guild.owner.send('Thanks for inviting me to the server. To get started you need to set up what channels I should talk to when announcing. Do this by:\n"/configure" in any channel in the guild and I will respond with your options.\nYou can at any time also issue: "/help" to see what commands are avilable.')
 
 
 @bot.event
 async def on_guild_remove(guild):
+    """When the bot gets removed from a server we set the config to not be enabled on that server"""
     this_guild = bot.confs[str(guild.id)]
     this_guild['enabled'] = '0'
     bot.confs[str(guild.id)] = this_guild
@@ -307,7 +312,7 @@ async def kick_member(ctx, member : discord.Member, reason : str):
         return
     this_guild = bot.confs[str(ctx.guild.id)]
     if not is_mod(ctx.user.roles, this_guild):
-        await ctx.response.send_message("You are not set as moderator and is not allowed to use this command.")
+        await ctx.response.send_message(bot.NOT_MOD_STRING)
         return
     if ctx.guild.owner.id == member.id:
         await ctx.response.send_message("You cannot kick a server owner")
@@ -326,7 +331,7 @@ async def ban_member(ctx, member : discord.Member, reason : str):
         return
     this_guild = bot.confs[str(ctx.guild.id)]
     if not is_mod(ctx.user.roles, this_guild):
-        await ctx.response.send_message("You are not set as moderator and is not allowed to use this command.")
+        await ctx.response.send_message(bot.NOT_MOD_STRING)
         return
     if ctx.guild.owner.id == member.id:
         await ctx.response.send_message("You cannot ban a server owner")
@@ -342,7 +347,7 @@ async def ban_member(ctx, member : discord.Member, reason : str):
 async def purge(ctx, number : int, reason : str):
     this_guild = bot.confs[str(ctx.guild.id)]
     if not is_mod(ctx.user.roles, this_guild):
-        await ctx.response.send_message("You are not set as moderator and is not allowed to use this command.")
+        await ctx.response.send_message(bot.NOT_MOD_STRING)
         return
     messages = [message async for message in ctx.channel.history(limit=number)]
     await ctx.response.send_message(str(number) + " messages will be purged")
@@ -384,6 +389,7 @@ async def edit_announce(ctx, message: str):
 
 @bot.event
 async def on_message(message):
+    """This method is mostly deprecated now since discord dont want bot to answer on normal messages"""
     # do not listen to bots own messages
     if message.author.id == bot.user.id:
         return
@@ -394,6 +400,7 @@ async def on_message(message):
 
 @bot.event
 async def on_member_join(member):
+    """If someone joins a guild the bot (if configured to do so) will greet them"""
     guild = bot.confs[str(member.guild.id)]
     if guild['boardingChannel'] != '0' and guild['welcomeMessage'] != '0':
         try:
@@ -404,6 +411,7 @@ async def on_member_join(member):
 
 @bot.event
 async def on_member_remove(member):
+    """If a member leaves the server the bot will (if configured to do so) say that they left as well as check if the leaving was because of a moderator action."""
     guild = bot.confs[str(member.guild.id)]
     if guild['removeAnnounce'] != '0' and guild['logChannel'] != '0':
         this_guild = bot.get_guild(member.guild.id) 
@@ -425,6 +433,7 @@ async def on_member_remove(member):
 
 @bot.event
 async def on_member_update(before, after):
+    """If a member get edited the bot will check if it was due to a moderator action and log that"""
     guild = bot.confs[str(before.guild.id)]
     if guild['logChannel'] == '0':
         return
@@ -462,8 +471,43 @@ async def on_member_update(before, after):
             return
 
 
+@bot.event
+async def on_message_edit(before, after):
+    """If a message gets edited the bot can announce that someone has changed their message"""
+    guild = bot.confs[str(before.guild.id)]
+    if guild['logChannel'] == '0':
+        return
+    if before.content != after.content:
+        await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("Message updated", before.author.display_name + "s message has been changed", 0xfa0000, "", {'Before' : before.content, 'After' : after.content}))
+    elif before.pinned != after.pinned:
+        moderator = ""
+        this_guild = bot.get_guild(before.guild.id)
+        async for entry in this_guild.audit_logs(limit=1):
+            if entry.action == discord.AuditLogAction.message_pin or entry.action == discord.AuditLogAction.message_unpin:
+                moderator = entry.user.display_name
+        message = before.author.display_name + "s message has " + "been pinned" if after.pinned else "has had its pinned status removed" + " by " + moderator
+        await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("Pin edit", message, 0xfa0000, "",{'Message': before.content}))
+
+
+@bot.event
+async def on_message_delete(message):
+    """If a message gets deleted the bot can find it and see if it was done by a moderator or its author"""
+    guild = bot.confs[str(message.guild.id)]
+    if guild['logChannel'] == '0':
+        return
+    this_guild = bot.get_guild(message.guild.id)
+    async for entry in this_guild.audit_logs(limit=1):
+        who_did = ""
+        if entry.action == discord.AuditLogAction.message_delete:
+            who_did = entry.user.display_name
+        else:
+            who_did = message.author.display_name
+        await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("Message deletion", message.content, 0xfa0000, "", {'Who deleted message': who_did}))
+
+
 @tasks.loop(seconds=60)
 async def event_check(self):
+    """Help method to see if we need to announce that an event is happening soon"""
     for guild in bot.confs:
         this_guild = bot.confs[guild]
         if this_guild['eventChannel'] != '0':
@@ -593,8 +637,9 @@ async def event_check(self):
 #            bot.lastannounce = now
 
 
-def is_mod(userRoles, this_guild):
-    for role in userRoles:
+def is_mod(user_roles, this_guild):
+    """Help method to see if the current user roles contain the set moderator role for the server"""
+    for role in user_roles:
         if role.name == this_guild['moderator']:
             return True
     if not is_mod:
@@ -602,6 +647,7 @@ def is_mod(userRoles, this_guild):
 
 
 def make_embed(title, description, colour, thumbnail, fields):
+    """Help method to make embed messages which are prettier"""
     embed_var = discord.Embed(title=title, description=description, color=colour)
     if thumbnail != "":
         embed_var.set_thumbnail(url=thumbnail)
@@ -611,6 +657,7 @@ def make_embed(title, description, colour, thumbnail, fields):
 
 
 def add_event(message, guildid, user):
+    """Help method to add an event into the servers list of coming events"""
     now = str(time.time()).split('.')[0]
     this_guild = bot.confs[str(guildid)]
     events = this_guild['events']
@@ -629,6 +676,7 @@ def add_event(message, guildid, user):
 
 
 def remove_event(guildid, id):
+    """Help method to remove an event from a servers list of coming events"""
     this_guild = bot.confs[str(guildid)]
     events = this_guild['events']
     found = False
@@ -641,6 +689,7 @@ def remove_event(guildid, id):
 
 
 def save_conf():
+    """Help method to update the saved configuration of a server"""
     g = open(bot.CONFIGURATION, 'w')
     g.write(str(bot.confs))
     g.close()
