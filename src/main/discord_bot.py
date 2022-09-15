@@ -34,9 +34,9 @@ bot.forts = ['The Maw', 'Reikwald', 'Fell Landing', 'Shining Way', 'Butchers Pas
 bot.cities = ['Inevitable City', 'Altdorf']
 bot.started = False
 bot.commandDescriptions = {'configure': 'Commands to configure the bot (these can only be issued by the owner of the discord and there are multiple subcommands here)', 'citystat' : 'Posts the statistics for cities', 'fortstat' : 'Posts the statistics for fortresses', 'add Fortping' : 'Adds you to the group that gets pinged on fortresses', 'add CityPing' : 'Adds you to the group that gets pinged on cities', 'remove FortPing' : 'Removes you from the group that gets pinged in fortresses', 'remove CityPing' : 'Removes you from the group that gets pinged when cities happen', 'add Event' : 'Adds an event to the bot using syntax: "epoch,name,description" (https://www.epochconverter.com/)', 'remove Event' : 'Removes an event with the specified ID', 'list Event' : 'Lists all events for the guild'}
-bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'moderator']
-bot.configDesc = {'announceChannel' : '(String/int)What channel to post campaign to (either Channel name or channelID specified)', 'logChannel' : '(String/int)What channel to pot logs about moderation or role changes (either channel name or channelID specified)', 'welcomeMessage' : '(String)What the bot should greet someone that joins the server with', 'boardingChannel' : '(String/int)What channel to post welcome/leave messages to (either channel name or channelID specified)', 'moderator' : '(String/int)What role to allow moderator commands', 'fortPing' : '(String/int)What role to attatch to announcement of campaign when a fort happens (role name or roleID specified)', 'cityPing' : '(String/int)What role to attach to announcement of campagin when a city happens(role name or roleID specified)', 'removeAnnounce' : '(bool as int)If the bot should post in the log channel when someone gets kicked or banned from the server', 'announceServmsg': '(bool as int)If the bot should announce issues or other messages from soronline.us', 'eventChannel' : '(String/int)What channel to post event messages to (either channel name or channelID specified)'}
-bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1', 'removeAnnounce': '0', 'announceServmsg' : '0', "eventChannel" : "0", "events" : {}, 'moderator' : '0'}
+bot.configureCommands = ['announceChannel', 'logChannel', 'welcomeMessage', 'leaveMessage', 'boardingChannel', 'fortPing', 'cityPing', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'moderator']
+bot.configDesc = {'announceChannel' : '(String/int)What channel to post campaign to (either Channel name or channelID specified)', 'logChannel' : '(String/int)What channel to pot logs about moderation or role changes (either channel name or channelID specified)', 'welcomeMessage' : '(String)What the bot should greet someone that joins the server with ("{display_name/name/id} can be used to let the bot substitute it")', 'leaveMessage' : '(String)What the bot should say when someone leaves the server ("{display_name/name/id} can be used to let the bot substitute it")', 'boardingChannel' : '(String/int)What channel to post welcome/leave messages to (either channel name or channelID specified)', 'moderator' : '(String/int)What role to allow moderator commands', 'fortPing' : '(String/int)What role to attatch to announcement of campaign when a fort happens (role name or roleID specified)', 'cityPing' : '(String/int)What role to attach to announcement of campagin when a city happens(role name or roleID specified)', 'removeAnnounce' : '(bool as int)If the bot should post in the log channel when someone gets kicked or banned from the server', 'announceServmsg': '(bool as int)If the bot should announce issues or other messages from soronline.us', 'eventChannel' : '(String/int)What channel to post event messages to (either channel name or channelID specified)'}
+bot.allconf = {'announceChannel' : '0', 'logChannel' : '0', 'welcomeMessage' : '0', 'leaveMessage' : '0', 'boardingChannel' : '0', 'fortPing' : '0', 'cityPing' : '0', 'enabled' : '1', 'removeAnnounce': '0', 'announceServmsg' : '0', "eventChannel" : "0", "events" : {}, 'moderator' : '0'}
 bot.confs = {}
 bot.lastCityTime = 0
 bot.servmsg = ""
@@ -109,7 +109,7 @@ async def on_ready():
 async def on_guild_join(guild):
     """When the bot joins a new server it will configure itself with the values it needs saved"""
     if guild.id not in bot.confs:
-        this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', 'moderator' : '0', "events" : {}}
+        this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", 'leaveMessage' : '0', "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', 'moderator' : '0', "events" : {}}
         bot.confs[str(guild.id)] = this_guild
         save_conf()
     else:
@@ -251,7 +251,7 @@ async def announce(ctx, message: str):
 
 @tree.command(name="configure", description="Command group to configure the bot on your server")
 @app_commands.describe(option="What setting to change", args="The setting for the option")
-async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'boardingChannel', 'fortPing', 'cityPing', 'moderator', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
+async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'leaveMessage', 'boardingChannel', 'fortPing', 'cityPing', 'moderator', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
     if ctx.user.id == ctx.guild.owner.id or ctx.user.id == 173443339025121280:
         if str(ctx.guild.id) not in bot.confs.keys():
             this_guild = {"announceChannel" : "0", "logChannel" : "0", "welcomeMessage" : "0", "boardingChannel" : "0", "fortPing" : "0", "cityPing" : "0", 'enabled' : '1', 'removeAnnounce' : '0', 'announceServmsg' : '0', 'eventChannel' : '0', 'events' : [], 'moderator': '0'}
@@ -293,7 +293,7 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
                 bot.confs[str(ctx.guild.id)] = this_guild
                 await ctx.response.send_message(option + " is now set to: " + args)
                 save_conf()
-        # Currently this is only welcomeMessage, but it can be set directly.
+        # Currently this is only welcomeMessage/leaveMessage, but it can be set directly.
         else:
             this_guild = bot.confs[str(ctx.guild.id)]
             this_guild[option] = args
@@ -403,10 +403,8 @@ async def on_member_join(member):
     """If someone joins a guild the bot (if configured to do so) will greet them"""
     guild = bot.confs[str(member.guild.id)]
     if guild['boardingChannel'] != '0' and guild['welcomeMessage'] != '0':
-        try:
-            await bot.get_channel(int(guild["boardingChannel"])).send(guild['welcomeMessage'])
-        except:
-            await bot.get_guild(int(member.guild.id)).owner.send("I tried to send a welcome message in the boarding channel but failed. Please reconfigure what channel to send welcomes to.")
+        message = message_formatter_member(guild['welcomeMessage'], member)
+        await bot.get_channel(int(guild["boardingChannel"])).send(message)
 
 
 @bot.event
@@ -428,7 +426,9 @@ async def on_member_remove(member):
                 msg = entry.user.name + " kicked " + entry.target.name
                 await bot.get_channel(int(guild['logChannel'])).send(embed=make_embed("User Kicked", msg, 0xfa0000, bot.KICKED_ICON, {"Reason" : entry.reason}))
                 return
-        await bot.get_channel(int(guild["boardingChannel"])).send(member.display_name + "/" + member.id + " has left the server.")
+    if guild['leaveMessage'] != '0' and guild['boardingChannel'] != '0':
+        message = message_formatter_member(guild['leaveMessage'], member)
+        await bot.get_channel(int(guild["boardingChannel"])).send(message)
 
 
 @bot.event
@@ -644,6 +644,11 @@ def is_mod(user_roles, this_guild):
             return True
     if not is_mod:
         return False
+
+
+def message_formatter_member(message, member):
+    """Help function to substitute member specific message parts"""
+    return message.format(display_name=member.display_name, id=member.id, name=member.name)
 
 
 def make_embed(title, description, colour, thumbnail, fields):
