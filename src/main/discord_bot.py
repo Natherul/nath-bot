@@ -295,6 +295,7 @@ async def announce(ctx, message: str):
 
 @tree.command(name="configure", description="Command group to configure the bot on your server")
 @app_commands.describe(option="What setting to change", args="The setting for the option")
+@app_commands.default_permissions(administrator=True)
 async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'leaveMessage', 'boardingChannel', 'fortPing', 'cityPing', 'moderator', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
     if ctx.user.id == ctx.guild.owner.id or ctx.user.id == 173443339025121280:
         if str(ctx.guild.id) not in bot.confs.keys():
@@ -361,6 +362,7 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
 
 @tree.command(name="kick", description="Kick member from the server")
 @app_commands.describe(member="The member to kick", reason="The reason for the kick")
+@app_commands.default_permissions(kick_members=True)
 async def kick_member(ctx, member : discord.Member, reason : str):
     if member.id == bot.user.id:
         await ctx.response.send_message("You cannot kick the bot")
@@ -382,6 +384,7 @@ async def kick_member(ctx, member : discord.Member, reason : str):
     
 @tree.command(name="ban", description="Ban member from the server")
 @app_commands.describe(member="The member to ban", reason="The reason for the ban")
+@app_commands.default_permissions(ban_members=True)
 async def ban_member(ctx, member : discord.Member, reason : str):
     if member.id == bot.user.id:
         await ctx.response.send_message("You cannot ban the bot")
@@ -403,6 +406,7 @@ async def ban_member(ctx, member : discord.Member, reason : str):
 
 @tree.command(name="purge", description="Purges a set number of messages from the current channel")
 @app_commands.describe(number="The number of messages to delete", reason="The reason for the purge")
+@app_commands.default_permissions(manage_messages=True)
 async def purge(ctx, number : int, reason : str):
     this_guild = bot.confs[str(ctx.guild.id)]
     if not is_mod(ctx.user.roles, this_guild):
@@ -429,6 +433,7 @@ async def fortstat(ctx):
 
 
 @tree.command(name="debug", description="Debug command to print information that Nath will want to troubleshoot issues")
+@app_commands.default_permissions(administrator=True)
 async def debug(ctx):
     this_guild = bot.confs[str(ctx.guild.id)]
     await ctx.response.send_message(embed=make_embed("These are the current settings for this server", "", 0xd8de0c,
