@@ -12,6 +12,7 @@ import time
 import ast
 from discord.ext import tasks
 from discord import app_commands
+import domain_filter
 
 
 t = open('token.txt', 'r')
@@ -49,10 +50,13 @@ bot.configDesc = {'announceChannel' : '(String/int)What channel to post campaign
                   'welcomeMessage' : '(String)What the bot should greet someone that joins the server with ("{display_name/name/id/mention} can be used to let the bot substitute it")',
                   'leaveMessage' : '(String)What the bot should say when someone leaves the server ("{display_name/name/id/mention} can be used to let the bot substitute it")',
                   'boardingChannel' : '(String/int)What channel to post welcome/leave messages to (either channel name or channelID specified)',
-                  'moderator' : '(String/int)What role to allow moderator commands', 'fortPing' : '(String/int)What role to attatch to announcement of campaign when a fort happens (role name or roleID specified)',
+                  'moderator' : '(String/int)What role to allow moderator commands',
+                  'fortPing' : '(String/int)What role to attatch to announcement of campaign when a fort happens (role name or roleID specified)',
                   'cityPing' : '(String/int)What role to attach to announcement of campagin when a city happens(role name or roleID specified)',
                   'removeAnnounce' : '(bool as int)If the bot should post in the log channel when someone gets kicked or banned from the server',
-                  'announceServmsg': '(bool as int)If the bot should announce issues or other messages from soronline.us', 'eventChannel' : '(String/int)What channel to post event messages to (either channel name or channelID specified)'}
+                  'announceServmsg': '(bool as int)If the bot should announce issues or other messages from soronline.us',
+                  'eventChannel' : '(String/int)What channel to post event messages to (either channel name or channelID specified)',
+                  'chatModeration' : '(bool as int)If the bot should moderate chat messages'}
 
 bot.allconf = {'announceChannel' : '0',
                'logChannel' : '0',
@@ -66,7 +70,8 @@ bot.allconf = {'announceChannel' : '0',
                'announceServmsg' : '0',
                "eventChannel" : "0",
                "events" : {},
-               'moderator' : '0'}
+               'moderator' : '0',
+               'chatModeration' : '0'}
 
 
 bot.confs = {}
@@ -90,6 +95,10 @@ bot.NOT_MOD_STRING = "You are not set as moderator and is not allowed to use thi
 
 # for if we want to edit announces
 bot.lastAnnounceMessage = {}
+
+bot.bad_domains = []
+# Ugly hack workaround since apparently a bot that deletes a message does not create an audit trail...
+bot.lastDeletedMessage = ""
 
 
 @bot.event
@@ -129,6 +138,11 @@ async def on_ready():
             c = open(bot.CONFIGURATION, 'w')
             c.write(str(bot.confs))
             c.close()
+            
+        print(str(datetime.utcnow().strftime(bot.TIME_STRING)) + ' Downloading new bad domain lists')
+        domain_filter.download_files()
+        print(str(datetime.utcnow().strftime(bot.TIME_STRING)) + ' Processing downloaded files to make a full list of bad domains')
+        bot.bad_domains = domain_filter.load_bad_domains()
 
         print(str(datetime.utcnow().strftime(bot.TIME_STRING)) + ' LOADED')
         event_check.start(bot)
@@ -141,19 +155,7 @@ async def on_ready():
 async def on_guild_join(guild):
     """When the bot joins a new server it will configure itself with the values it needs saved"""
     if guild.id not in bot.confs:
-        this_guild = {"announceChannel" : "0",
-                      "logChannel" : "0",
-                      "welcomeMessage" : "0",
-                      'leaveMessage' : '0',
-                      "boardingChannel" : "0",
-                      "fortPing" : "0",
-                      "cityPing" : "0",
-                      'enabled' : '1',
-                      'removeAnnounce' : '0',
-                      'announceServmsg' : '0',
-                      'eventChannel' : '0',
-                      'moderator' : '0',
-                      "events" : {}}
+        this_guild = bot.allconf
         bot.confs[str(guild.id)] = this_guild
         save_conf()
     else:
@@ -296,26 +298,15 @@ async def announce(ctx, message: str):
 @tree.command(name="configure", description="Command group to configure the bot on your server")
 @app_commands.describe(option="What setting to change", args="The setting for the option")
 @app_commands.default_permissions(administrator=True)
-async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'leaveMessage', 'boardingChannel', 'fortPing', 'cityPing', 'moderator', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
+async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'leaveMessage', 'boardingChannel', 'fortPing', 'cityPing', 'moderator', 'chatModeration', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
     if ctx.user.id == ctx.guild.owner.id or ctx.user.id == 173443339025121280:
         if str(ctx.guild.id) not in bot.confs.keys():
-            this_guild = {"announceChannel" : "0",
-                          "logChannel" : "0",
-                          "welcomeMessage" : "0",
-                          "boardingChannel" : "0",
-                          "fortPing" : "0",
-                          "cityPing" : "0",
-                          'enabled' : '1',
-                          'removeAnnounce' : '0',
-                          'announceServmsg' : '0',
-                          'eventChannel' : '0',
-                          'events' : [],
-                          'moderator': '0'}
+            this_guild = bot.allconf
             bot.confs[str(ctx.guild.id)] = this_guild
             save_conf()
             await ctx.response.send_message("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
         elif option == "help" or args is None:
-            await ctx.response.send_message(embed=make_embed("Avilable Configure Commands", "These are the configure commands avilable", 0xfa00f2, bot.QUESTION_ICON, bot.configDesc))
+            await ctx.response.send_message(embed=make_embed("Available Configure Commands", "These are the configure commands available", 0xfa00f2, bot.QUESTION_ICON, bot.configDesc))
         elif option == "announceChannel" or option == "logChannel" or option == "boardingChannel" or option == "eventChannel":
             tmp_guild = ctx.guild
             tmp_channels = tmp_guild.text_channels
@@ -340,7 +331,7 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
                     save_conf()
                     return
             await ctx.response.send_message("No role with that name or ID was found")
-        elif option == "removeAnnounce" or option == "announceServmsg":
+        elif option == "removeAnnounce" or option == "announceServmsg" or option == "chatModeration":
             if args != "1" and args != "0":
                 await ctx.response.send_message("For this setting you can only specify it being on (1) or off (0)")
             else:
@@ -455,13 +446,26 @@ async def edit_announce(ctx, message: str):
 
 @bot.event
 async def on_message(message):
-    """This method is mostly deprecated now since discord dont want bot to answer on normal messages"""
+    """This is the method to check content of someone's message"""
     # do not listen to bots own messages
     if message.author.id == bot.user.id:
         return
     # do not allow PMs to the bot
     elif "Direct Message" in str(message.channel):
         await message.author.send("im sorry but I do not respond to DMs.\nhttps://www.youtube.com/watch?v=agUaHwxcXHY")
+    # Message moderation
+    else:
+        guild = bot.confs[str(message.guild.id)]
+        if guild['chatModeration'] == '1':
+            if set(bot.bad_domains).intersection(set(message.content.split())):
+                # The message contained a bad domain and should be blocked
+                bot.lastDeletedMessage = message.content
+                await message.delete()
+                if guild['logChannel'] == '0':
+                    return
+                else:
+                    await bot.get_channel(int(guild['logChannel'])).send(
+                        embed=make_embed("Message automatically removed by bot", bot.lastDeletedMessage, 0xfa0000, bot.ERROR_ICON, {"Reason": "Contained bad link"}))
 
 
 @bot.event
@@ -573,7 +577,7 @@ async def on_message_edit(before, after):
 async def on_message_delete(message):
     """If a message gets deleted the bot can find it and see if it was done by a moderator or its author"""
     guild = bot.confs[str(message.guild.id)]
-    if guild['logChannel'] == '0':
+    if guild['logChannel'] == '0' or bot.lastDeletedMessage == message.content:
         return
     this_guild = bot.get_guild(message.guild.id)
     async for entry in this_guild.audit_logs(limit=1):
