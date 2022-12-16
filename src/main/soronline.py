@@ -9,21 +9,21 @@ def scrape():
     data = json.loads(x[0]['data'])
     
     openzones = {}
-    shouldWrite = False
+    should_write = False
     string = ""
     
     if "keeps" in data:
-        shouldWrite = True
+        should_write = True
         for keep in data['keeps']:
             openzones[keep['pname']] = keep['name']
     
     if "forts" in data:
-        shouldWrite = True
+        should_write = True
         for fort in data['forts']:
             openzones[fort['pname']] = fort['name']
     
     if "cities" in data:
-        shouldWrite = True
+        should_write = True
         for city in data['cities']:
             openzones['City'] = city['name']
 
@@ -42,14 +42,14 @@ def scrape():
                 ordercount = ordercount + 1
         if destrocount > 1 and "Altdorf" not in openzones:
             openzones['City'] = "Altdorf"
-            shouldWrite = True
+            should_write = True
         elif ordercount > 1 and "Inevitable City" not in openzones:
             openzones['City'] = "Inevitable City"
-            shouldWrite = True
+            should_write = True
 
     if len(openzones) > 0:
         string = str(openzones)
-    if shouldWrite == True:
+    if should_write == True:
         f = open("result.txt", "w")
         f.write(string)
         f.close()

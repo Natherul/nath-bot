@@ -4,6 +4,8 @@ import os
 import urllib.request
 import threading
 
+COUNTER__TXT = "domain_filters/{counter}.txt"
+
 # These files are taken from https://firebog.net/
 
 domain_filter_list = [  # Malicious links
@@ -34,7 +36,7 @@ def download_files():
 
     counter = 1
     for url in domain_filter_list:
-        urllib.request.urlretrieve(url, "domain_filters/{counter}.txt".format(counter=counter))
+        urllib.request.urlretrieve(url, COUNTER__TXT.format(counter=counter))
         counter += 1
 
 
@@ -52,9 +54,9 @@ def load_bad_domains():
     # Start threads
     for index in range(len(files_to_process)):
         counter += 1
-        if not os.path.exists("domain_filters/{counter}.txt".format(counter=counter)):
+        if not os.path.exists(COUNTER__TXT.format(counter=counter)):
             break
-        x = threading.Thread(target=load_file, args=("domain_filters/{counter}.txt".format(counter=counter), maindict, index),)
+        x = threading.Thread(target=load_file, args=(COUNTER__TXT.format(counter=counter), maindict, index),)
         threads.append(x)
         x.start()
 
