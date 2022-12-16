@@ -15,6 +15,7 @@ from discord import app_commands
 import domain_filter
 import uuid
 import logging
+import sys
 
 # Constants
 QUESTION_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png"
@@ -34,11 +35,18 @@ NOW_SET_TO_ = " is now set to: "
 
 logger = logging.getLogger('discord-bot')
 logger.setLevel(logging.DEBUG)
-log_handler = logging.StreamHandler()
-log_handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-log_handler.setFormatter(formatter)
-logger.addHandler(log_handler)
+
+h1 = logging.StreamHandler(sys.stdout)
+h1.setLevel(logging.DEBUG)
+h1.addFilter(lambda record: record.levelno <= logging.INFO)
+h1.setFormatter(formatter)
+
+h2 = logging.StreamHandler()
+h2.setLevel(logging.WARNING)
+h2.setFormatter(formatter)
+logger.addHandler(h1)
+logger.addHandler(h2)
 
 t = open('token.txt', 'r')
 TOKEN = t.read() 
@@ -991,4 +999,4 @@ def save_conf():
     g.close()
 
 
-bot.run(TOKEN, log_handler=log_handler)
+bot.run(TOKEN, log_handler=h1)
