@@ -16,6 +16,21 @@ import domain_filter
 import uuid
 import logging
 
+# Constants
+QUESTION_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png"
+ANNOUNCE_ICON = "http://tue.nu/misc/announce.png"
+BANNED_ICON = "https://e7.pngegg.com/pngimages/1003/312/png-clipart-hammer-game-pension-review-internet-crouton-hammer-technic-discord-thumbnail.png"
+KICKED_ICON = "https://p7.hiclipart.com/preview/825/776/55/karate-kick-martial-arts-taekwondo-clip-art-kicked-thumbnail.jpg"
+ERROR_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Error.svg/1200px-Error.svg.png"
+ROR_ICON = "http://www.tue.nu/misc/ror.png"
+TIME_STRING = "%Y-%m-%d %H:%M:%S"
+CONFIGURATION = "guilds.txt"
+DESTRO_STRING = ",Destruction\n"
+ORDER_STRING = ",Order\n"
+NOT_MOD_STRING = "You are not set as moderator and is not allowed to use this command."
+LOG_PERM_ERROR = "Nath-bot is enabled on your server but does not have the permissions to send messages to the log channel though its set to log to a set channel."
+HTTP_ERROR = "HTTP error"
+NOW_SET_TO_ = " is now set to: "
 
 logger = logging.getLogger('discord-bot')
 logger.setLevel(logging.DEBUG)
@@ -93,21 +108,6 @@ bot.servmsg = ""
 bot.lastannounce = ""
 bot.lasterr = ""
 
-# Constants
-bot.QUESTION_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png"
-bot.ANNOUNCE_ICON = "http://tue.nu/misc/announce.png"
-bot.BANNED_ICON = "https://e7.pngegg.com/pngimages/1003/312/png-clipart-hammer-game-pension-review-internet-crouton-hammer-technic-discord-thumbnail.png"
-bot.KICKED_ICON = "https://p7.hiclipart.com/preview/825/776/55/karate-kick-martial-arts-taekwondo-clip-art-kicked-thumbnail.jpg"
-bot.ERROR_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Error.svg/1200px-Error.svg.png"
-bot.ROR_ICON = "http://www.tue.nu/misc/ror.png"
-bot.TIME_STRING = "%Y-%m-%d %H:%M:%S"
-bot.CONFIGURATION = "guilds.txt"
-bot.DESTRO_STRING = ",Destruction\n"
-bot.ORDER_STRING = ",Order\n"
-bot.NOT_MOD_STRING = "You are not set as moderator and is not allowed to use this command."
-bot.LOG_PERM_ERROR = "Nath-bot is enabled on your server but does not have the permissions to send messages to the log channel though its set to log to a set channel."
-bot.HTTP_ERROR = "HTTP error"
-
 # for if we want to edit announces
 bot.lastAnnounceMessage = {}
 
@@ -136,7 +136,7 @@ async def on_ready():
         bot.lastCityTime = l.read()
         l.close()
         # the configurations for the diff disc servers
-        g = open(bot.CONFIGURATION, 'r')
+        g = open(CONFIGURATION, 'r')
         bot.confs = json.loads(g.read().replace("'", '"'))
         g.close()
         remake = False
@@ -149,7 +149,7 @@ async def on_ready():
                     remake = True
 
         if remake:
-            c = open(bot.CONFIGURATION, 'w')
+            c = open(CONFIGURATION, 'w')
             c.write(str(bot.confs))
             c.close()
 
@@ -192,7 +192,7 @@ async def on_guild_remove(guild):
 
 @tree.command(name="help", description="The help command for the bot")
 async def helpmessage(ctx):
-    await ctx.response.send_message(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, bot.QUESTION_ICON, bot.commandDescriptions))
+    await ctx.response.send_message(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, QUESTION_ICON, bot.commandDescriptions))
 
 
 @tree.command(name="add", description="Command group to add pings or events")
@@ -212,7 +212,7 @@ async def add(ctx, type: Literal['FortPing', 'CityPing', 'Event', 'Channel'], ar
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when attempting to add a role or when trying to post to the log channel")
             except discord.HTTPException:
-                logger.error(bot.HTTP_ERROR)
+                logger.error(HTTP_ERROR)
     elif "CityPing" == type:
         if this_guild['cityPing'] != '0':
             try:
@@ -226,7 +226,7 @@ async def add(ctx, type: Literal['FortPing', 'CityPing', 'Event', 'Channel'], ar
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when attempting to add a role or when trying to post to the log channel")
             except discord.HTTPException:
-                logger.error(bot.HTTP_ERROR)
+                logger.error(HTTP_ERROR)
     elif "Event" == type:
         if args is None:
             await ctx.response.send_message("When adding an even you need to add the parameters in a comma seperated way. Epoch,EventName,Description. Example: 1624723200,Testing,Testevent")
@@ -254,7 +254,7 @@ async def add(ctx, type: Literal['FortPing', 'CityPing', 'Event', 'Channel'], ar
             except (discord.Forbidden, TypeError):
                 await ctx.response.send_message("Something went wrong when attempting to either create the channel or move you to the channel.")
             except discord.HTTPException:
-                logger.error(bot.HTTP_ERROR)
+                logger.error(HTTP_ERROR)
         else:
             await ctx.response.send_message(
                 "You need to be connected to a channel before issuing this command. The bot will move you to the channel when its created and remove the channel once its empty.")
@@ -278,7 +278,7 @@ async def remove(ctx, type: Literal['FortPing', 'CityPing', 'Event'], args: Opti
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when either removing a permission from a user or  when trying to post it in the log channel")
             except discord.HTTPException:
-                logger.error(bot.HTTP_ERROR)
+                logger.error(HTTP_ERROR)
     elif "CityPing" == type:
         if this_guild['cityPing'] != '0':
             try:
@@ -293,7 +293,7 @@ async def remove(ctx, type: Literal['FortPing', 'CityPing', 'Event'], args: Opti
                 await bot.get_guild(int(ctx.guild.id)).owner.send(
                     "Something went wrong when either removing a permission from a user or  when trying to post it in the log channel")
             except discord.HTTPException:
-                logger.error(bot.HTTP_ERROR)
+                logger.error(HTTP_ERROR)
     elif "Event" == type:
         if args is None:
             await ctx.response.send_message("When removing an event you need to specify the id which can be found using list command")
@@ -328,7 +328,7 @@ async def announce(ctx, message: str):
             if this_guild['enabled'] == '1' and this_guild['announceChannel'] != '0':
                 try:
                     bot.lastAnnounceMessage[guild] = await bot.get_channel(int(this_guild['announceChannel'])).send(
-                        embed=make_embed("Announcement from Natherul", message, 0x00ff00, bot.ANNOUNCE_ICON,
+                        embed=make_embed("Announcement from Natherul", message, 0x00ff00, ANNOUNCE_ICON,
                                          {}))
                 except (discord.Forbidden, ValueError, TypeError):
                     logger.warning("announcement channel wrong in: " + str(this_guild) + " removing the announce channel from it")
@@ -336,7 +336,7 @@ async def announce(ctx, message: str):
                     bot.confs[str(ctx.guild.id)] = this_guild
                     save_conf()
                 except discord.HTTPException:
-                    logger.error(bot.HTTP_ERROR)
+                    logger.error(HTTP_ERROR)
     else:
         await ctx.response.send_message("This command is locked to only be useable by Natherul")
 
@@ -352,7 +352,7 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
             save_conf()
             await ctx.response.send_message("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
         elif option == "help" or args is None:
-            await ctx.response.send_message(embed=make_embed("Available Configure Commands", "These are the configure commands available", 0xfa00f2, bot.QUESTION_ICON, bot.configDesc))
+            await ctx.response.send_message(embed=make_embed("Available Configure Commands", "These are the configure commands available", 0xfa00f2, QUESTION_ICON, bot.configDesc))
         elif option in ("announceChannel", "logChannel", "boardingChannel", "eventChannel"):
             tmp_guild = ctx.guild
             tmp_channels = tmp_guild.text_channels
@@ -361,7 +361,7 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
                     this_guild = bot.confs[str(ctx.guild.id)]
                     this_guild[option] = args
                     bot.confs[str(ctx.guild.id)] = this_guild
-                    await ctx.response.send_message(option + " is now set to: " + args)
+                    await ctx.response.send_message(option + NOW_SET_TO_ + args)
                     save_conf()
                     return
             await ctx.response.send_message("No channel found with that name or ID")
@@ -373,7 +373,7 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
                     this_guild = bot.confs[str(ctx.guild.id)]
                     this_guild[option] = args
                     bot.confs[str(ctx.guild.id)] = this_guild
-                    await ctx.response.send_message(option + " is now set to: " + args)
+                    await ctx.response.send_message(option + NOW_SET_TO_ + args)
                     save_conf()
                     return
             await ctx.response.send_message("No role with that name or ID was found")
@@ -384,14 +384,14 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
                 this_guild = bot.confs[str(ctx.guild.id)]
                 this_guild[option] = args
                 bot.confs[str(ctx.guild.id)] = this_guild
-                await ctx.response.send_message(option + " is now set to: " + args)
+                await ctx.response.send_message(option + NOW_SET_TO_ + args)
                 save_conf()
         # Currently this is only welcomeMessage/leaveMessage, but it can be set directly.
         else:
             this_guild = bot.confs[str(ctx.guild.id)]
             this_guild[option] = args
             bot.confs[str(ctx.guild.id)] = this_guild
-            await ctx.response.send_message(option + " is now set to: " + args)
+            await ctx.response.send_message(option + NOW_SET_TO_ + args)
             save_conf()
     else:
         await ctx.response.send_message("You are neither a server owner nor Natherul so configuring the server is not allowed.")
@@ -407,7 +407,7 @@ async def kick_member(ctx, member : discord.Member, reason : str):
             return
         this_guild = bot.confs[str(ctx.guild.id)]
         if not is_mod(ctx.user.roles, this_guild):
-            await ctx.response.send_message(bot.NOT_MOD_STRING)
+            await ctx.response.send_message(NOT_MOD_STRING)
             return
         if ctx.guild.owner.id == member.id:
             await ctx.response.send_message("You cannot kick a server owner")
@@ -415,13 +415,13 @@ async def kick_member(ctx, member : discord.Member, reason : str):
         elif this_guild['logChannel'] != '0':
             await bot.get_channel(int(this_guild['logChannel'])).send(
                 embed=make_embed("User Kicked", member.display_name + " was kicked by " +
-                                 ctx.user.display_name, 0xfa0000, bot.KICKED_ICON, {'Reason' : reason}))
+                                 ctx.user.display_name, 0xfa0000, KICKED_ICON, {'Reason' : reason}))
         await member.kick(reason=reason)
         await ctx.response.send_message("User kicked")
     except discord.Forbidden:
         await bot.get_guild(ctx.guild.id).owner.send("Nath-bot is enabled on your server but does not have the permissions to kick someone even though a moderation group has been set.")
     except discord.HTTPException:
-        logger.error(bot.HTTP_ERROR)
+        logger.error(HTTP_ERROR)
     
     
 @tree.command(name="ban", description="Ban member from the server")
@@ -434,7 +434,7 @@ async def ban_member(ctx, member : discord.Member, reason : str):
             return
         this_guild = bot.confs[str(ctx.guild.id)]
         if not is_mod(ctx.user.roles, this_guild):
-            await ctx.response.send_message(bot.NOT_MOD_STRING)
+            await ctx.response.send_message(NOT_MOD_STRING)
             return
         if ctx.guild.owner.id == member.id:
             await ctx.response.send_message("You cannot ban a server owner")
@@ -442,13 +442,13 @@ async def ban_member(ctx, member : discord.Member, reason : str):
         elif this_guild['logChannel'] != '0':
             await bot.get_channel(int(this_guild['logChannel'])).send(
                 embed=make_embed("User Banned", member.display_name + " was banned by " +
-                                 ctx.user.display_name, 0xfa0000, bot.BANNED_ICON, {'Reason' : reason}))
+                                 ctx.user.display_name, 0xfa0000, BANNED_ICON, {'Reason' : reason}))
         await member.ban(reason=reason)
         await ctx.response.send_message("User banned")
     except discord.Forbidden:
         await bot.get_guild(ctx.guild.id).owner.send("Nath-bot is enabled on your server but does not have the permissions to ban someone even though a moderation group has been set.")
     except discord.HTTPException:
-        logger.error(bot.HTTP_ERROR)
+        logger.error(HTTP_ERROR)
 
 
 @tree.command(name="purge", description="Purges a set number of messages from the current channel")
@@ -457,7 +457,7 @@ async def ban_member(ctx, member : discord.Member, reason : str):
 async def purge(ctx, number : int, reason : str):
     this_guild = bot.confs[str(ctx.guild.id)]
     if not is_mod(ctx.user.roles, this_guild):
-        await ctx.response.send_message(bot.NOT_MOD_STRING)
+        await ctx.response.send_message(NOT_MOD_STRING)
         return
     messages = [message async for message in ctx.channel.history(limit=number)]
     await ctx.response.send_message(str(number) + " messages will be purged")
@@ -471,7 +471,7 @@ async def purge(ctx, number : int, reason : str):
     except discord.Forbidden:
         await bot.get_guild(ctx.guild.id).owner.send("Nath-bot is enabled on your server but does not have the permissions to purge messages though moderation group has been set.")
     except discord.HTTPException:
-        logger.error(bot.HTTP_ERROR)
+        logger.error(HTTP_ERROR)
 
 
 @tree.command(name="citystat", description="Command to return the stats for cities in RoR")
@@ -489,7 +489,7 @@ async def fortstat(ctx):
 async def debug(ctx):
     this_guild = bot.confs[str(ctx.guild.id)]
     await ctx.response.send_message(embed=make_embed("These are the current settings for this server", "", 0xd8de0c,
-                                                bot.QUESTION_ICON,
+                                                QUESTION_ICON,
                                                 this_guild))
 
 
@@ -499,7 +499,7 @@ async def edit_announce(ctx, message: str):
     if ctx.user.id == 173443339025121280:
         for old_message in bot.lastAnnounceMessage:
             bot.lastAnnounceMessage[old_message].edit(
-                embed=make_embed("Announcement from Natherul", message, 0x00ff00, bot.ANNOUNCE_ICON, {}))
+                embed=make_embed("Announcement from Natherul", message, 0x00ff00, ANNOUNCE_ICON, {}))
         await ctx.response.send_message("Announcement updated")
     else:
         await ctx.response.send_message("This command is locked to only be usable by Natherul")
@@ -527,11 +527,11 @@ async def on_message(message):
                 else:
                     try:
                         await bot.get_channel(int(guild['logChannel'])).send(
-                            embed=make_embed("Message automatically removed by bot", bot.lastDeletedMessage, 0xfa0000, bot.ERROR_ICON, {"Reason": "Contained bad link"}))
+                            embed=make_embed("Message automatically removed by bot", bot.lastDeletedMessage, 0xfa0000, ERROR_ICON, {"Reason": "Contained bad link"}))
                     except discord.Forbidden:
-                        await bot.get_guild(message.guild.id).owner.send(bot.LOG_PERM_ERROR)
+                        await bot.get_guild(message.guild.id).owner.send(LOG_PERM_ERROR)
                     except discord.HTTPException:
-                        logger.error(bot.HTTP_ERROR)
+                        logger.error(HTTP_ERROR)
 
 
 @bot.event
@@ -546,7 +546,7 @@ async def on_member_join(member):
             await bot.get_guild(member.guild.id).owner.send(
                 "Nath-bot is enabled on your server but does not have the permissions to send messages to the boarding channel though a boarding channel is set.")
         except discord.HTTPException:
-            logger.error(bot.HTTP_ERROR)
+            logger.error(HTTP_ERROR)
 
 
 @bot.event
@@ -565,17 +565,17 @@ async def on_member_remove(member):
                 if entry.action == discord.AuditLogAction.ban and entry.target.name == member.name:
                     msg = entry.user.name + " banned " + entry.target.name
                     await bot.get_channel(int(guild['logChannel'])).send(
-                        embed=make_embed("User Banned", msg, 0xfa0000, bot.BANNED_ICON, {"Reason" : entry.reason}))
+                        embed=make_embed("User Banned", msg, 0xfa0000, BANNED_ICON, {"Reason" : entry.reason}))
                     return
                 elif entry.action == discord.AuditLogAction.kick and entry.target.name == member.name:
                     msg = entry.user.name + " kicked " + entry.target.name
                     await bot.get_channel(int(guild['logChannel'])).send(
-                        embed=make_embed("User Kicked", msg, 0xfa0000, bot.KICKED_ICON, {"Reason" : entry.reason}))
+                        embed=make_embed("User Kicked", msg, 0xfa0000, KICKED_ICON, {"Reason" : entry.reason}))
                     return
             except discord.Forbidden:
-                await bot.get_guild(member.guild.id).owner.send(bot.LOG_PERM_ERROR)
+                await bot.get_guild(member.guild.id).owner.send(LOG_PERM_ERROR)
             except discord.HTTPException:
-                logger.error(bot.HTTP_ERROR)
+                logger.error(HTTP_ERROR)
     if guild['leaveMessage'] != '0' and guild['boardingChannel'] != '0':
         message = message_formatter_member(guild['leaveMessage'], member, True)
         try:
@@ -584,7 +584,7 @@ async def on_member_remove(member):
             await bot.get_guild(member.guild.id).owner.send(
                 "Nath-bot is enabled on your server but does not have the permissions to send messages to the boarding channel though a boarding channel is set.")
         except discord.HTTPException:
-            logger.error(bot.HTTP_ERROR)
+            logger.error(HTTP_ERROR)
 
 
 @bot.event
@@ -635,7 +635,7 @@ async def on_member_update(before, after):
     except discord.Forbidden:
         await this_guild.owner.send("Nath-bot is enabled on your server but the bot does not have the permissions to look at the audit log or does not have the permissions to post in the log channel and a log channel is set.")
     except discord.HTTPException:
-        logger.error(bot.HTTP_ERROR)
+        logger.error(HTTP_ERROR)
 
 
 @bot.event
@@ -662,9 +662,9 @@ async def on_message_edit(before, after):
             await bot.get_channel(int(guild['logChannel'])).send(
                 embed=make_embed("Pin edit", message, 0xfa0000, "", {'Message': before.content}))
     except discord.Forbidden:
-        await bot.get_guild(before.guild.id).owner.send(bot.LOG_PERM_ERROR)
+        await bot.get_guild(before.guild.id).owner.send(LOG_PERM_ERROR)
     except discord.HTTPException:
-        logger.error(bot.HTTP_ERROR)
+        logger.error(HTTP_ERROR)
 
 
 @bot.event
@@ -684,9 +684,9 @@ async def on_message_delete(message):
             await bot.get_channel(int(guild['logChannel'])).send(
                 embed=make_embed("Message deletion", message.content, 0xfa0000, "", {'Who deleted message': who_did}))
     except discord.Forbidden:
-        await bot.get_guild(message.guild.id).owner.send(bot.LOG_PERM_ERROR)
+        await bot.get_guild(message.guild.id).owner.send(LOG_PERM_ERROR)
     except discord.HTTPException:
-        logger.error(bot.HTTP_ERROR)
+        logger.error(HTTP_ERROR)
 
 
 @bot.event
@@ -706,9 +706,9 @@ async def on_thread_create(thread):
             await bot.get_channel(int(guild['logChannel'])).send(
                 embed=make_embed("Thread creation", thread.starter_message, 0xfa0000, "", {'Who created thread': who_did}))
     except discord.Forbidden:
-        await bot.get_guild(thread.guild.id).owner.send(bot.LOG_PERM_ERROR)
+        await bot.get_guild(thread.guild.id).owner.send(LOG_PERM_ERROR)
     except discord.HTTPException:
-        logger.error(bot.HTTP_ERROR)
+        logger.error(HTTP_ERROR)
 
 
 @bot.event
@@ -728,9 +728,9 @@ async def on_thread_delete(thread):
             await bot.get_channel(int(guild['logChannel'])).send(
                 embed=make_embed("Thread deletion", thread.starter_message, 0xfa0000, "", {'Who deleted thread': who_did}))
     except discord.Forbidden:
-        await bot.get_guild(thread.guild.id).owner.send(bot.LOG_PERM_ERROR)
+        await bot.get_guild(thread.guild.id).owner.send(LOG_PERM_ERROR)
     except discord.HTTPException:
-        logger.error(bot.HTTP_ERROR)
+        logger.error(HTTP_ERROR)
 
 
 @bot.event
@@ -756,9 +756,9 @@ async def on_thread_update(before, after):
             await bot.get_channel(int(guild['logChannel'])).send(
                 embed=make_embed("Thread edit", message, 0xfa0000, "", {'Thread': before.starter_message}))
     except discord.Forbidden:
-        await bot.get_guild(before.guild.id).owner.send(bot.LOG_PERM_ERROR)
+        await bot.get_guild(before.guild.id).owner.send(LOG_PERM_ERROR)
     except discord.HTTPException:
-        logger.error(bot.HTTP_ERROR)
+        logger.error(HTTP_ERROR)
 
 
 @tasks.loop(seconds=60)
@@ -780,7 +780,7 @@ async def event_check(self):
                         await bot.get_guild(int(guild)).owner.send(
                             "Nath-bot is enabled on your server but does not have the permissions to send messages to the event channel though an event channel is set.")
                     except discord.HTTPException:
-                        logger.error(bot.HTTP_ERROR)
+                        logger.error(HTTP_ERROR)
                     events_to_remove.append(event)
             for event in events_to_remove:
                 remove_event(guild, event)
@@ -802,7 +802,7 @@ async def channel_check(self):
                     await bot.get_guild(int(guild)).owner.send(
                         "Nath-bot is enabled on your server but does not have the permissions delete channels even though it has created at least one temporary channel.")
                 except discord.HTTPException:
-                    logger.error(bot.HTTP_ERROR)
+                    logger.error(HTTP_ERROR)
         
         for old_channel in to_remove:
             current_channels.remove(old_channel)
@@ -961,7 +961,7 @@ def add_event(message, guildid, user):
         if datetime.fromtimestamp(int(event_data[0])) < datetime.utcnow():
             return 1
         this_event = {'Host' : user.display_name, 'Name' : event_data[1], 'Description' : event_data[2],
-                      'UTC Time' : time.strftime(bot.TIME_STRING, time.gmtime(int(event_data[0])))}
+                      'UTC Time' : time.strftime(TIME_STRING, time.gmtime(int(event_data[0])))}
         events[now] = this_event
         this_guild['events'] = events
         bot.confs[str(guildid)] = this_guild
@@ -986,7 +986,7 @@ def remove_event(guildid, id):
 
 def save_conf():
     """Help method to update the saved configuration of a server"""
-    g = open(bot.CONFIGURATION, 'w')
+    g = open(CONFIGURATION, 'w')
     g.write(str(bot.confs))
     g.close()
 
