@@ -14,6 +14,7 @@ import domain_filter
 import uuid
 import logging
 import sys
+import sto_news
 
 # Constants
 QUESTION_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png"
@@ -89,7 +90,8 @@ bot.configDesc = {'announceChannel' : '(String/int)What channel to post campaign
                   'announceServmsg': '(bool as int)If the bot should announce issues or other messages from soronline.us',
                   'eventChannel' : '(String/int)What channel to post event messages to (either channel name or channelID specified)',
                   'chatModeration' : '(bool as int)If the bot should moderate chat messages',
-                  'allowTempChannels' : '(bool as int)If anyone is allowed to ask the bot to make temporary voice channels'}
+                  'allowTempChannels' : '(bool as int)If anyone is allowed to ask the bot to make temporary voice channels',
+                  'stoNewsChannel' : '(String/int)What channel if any to post news from Star trek online. (either channel name or channelID specified)'}
 
 bot.allconf = {'announceChannel' : '0',
                'logChannel' : '0',
@@ -105,7 +107,8 @@ bot.allconf = {'announceChannel' : '0',
                "events" : {},
                'moderator' : '0',
                'chatModeration' : '0',
-               'tempChannels' : []}
+               'tempChannels' : [],
+               'stoNewsChannel' : '0'}
 
 
 bot.confs = {}
@@ -113,6 +116,7 @@ bot.lastCityTime = 0
 bot.servmsg = ""
 bot.lastannounce = ""
 bot.lasterr = ""
+bot.sto_news = []
 
 # for if we want to edit announces
 bot.lastAnnounceMessage = {}
@@ -141,6 +145,10 @@ async def on_ready():
         l = open('lastcity.txt', 'r')
         bot.lastCityTime = l.read()
         l.close()
+        # load previos news to know if there is new news
+        f = open('sto_news.txt', 'r')
+        bot.sto_news = json.loads(f.read())
+        f.close()
         # the configurations for the diff disc servers
         g = open(CONFIGURATION, 'r')
         bot.confs = json.loads(g.read().replace("'", '"'))
@@ -167,6 +175,7 @@ async def on_ready():
         logger.info('LOADED')
         event_check.start(bot)
         channel_check.start(bot)
+        sto_news_check.start(bot)
         await tree.sync()
         await tree.sync(guild=discord.Object(id=bot.TUE))
 
@@ -349,7 +358,7 @@ async def announce(ctx, message: str):
 @tree.command(name="configure", description="Command group to configure the bot on your server")
 @app_commands.describe(option="What setting to change", args="The setting for the option")
 @app_commands.default_permissions(administrator=True)
-async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'leaveMessage', 'boardingChannel', 'fortPing', 'cityPing', 'moderator', 'chatModeration', 'allowTempChannels', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
+async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'leaveMessage', 'boardingChannel', 'stoNewsChannel', 'fortPing', 'cityPing', 'moderator', 'chatModeration', 'allowTempChannels', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
     if ctx.user.id == ctx.guild.owner.id or ctx.user.id == 173443339025121280:
         if str(ctx.guild.id) not in bot.confs.keys():
             this_guild = bot.allconf
@@ -358,7 +367,7 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
             await ctx.response.send_message("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
         elif option == "help" or args is None:
             await ctx.response.send_message(embed=make_embed("Available Configure Commands", "These are the configure commands available", 0xfa00f2, QUESTION_ICON, bot.configDesc))
-        elif option in ("announceChannel", "logChannel", "boardingChannel", "eventChannel"):
+        elif option in ("announceChannel", "logChannel", "boardingChannel", "eventChannel", "stoNewsChannel"):
             tmp_guild = ctx.guild
             tmp_channels = tmp_guild.text_channels
             for channel in tmp_channels:
@@ -764,6 +773,30 @@ async def on_thread_update(before, after):
         await bot.get_guild(before.guild.id).owner.send(LOG_PERM_ERROR)
     except discord.HTTPException:
         logger.error(HTTP_ERROR)
+
+
+@tasks.loop(minutes=10)
+async def sto_news_check(self):
+    """Method to check for new news items from star trek online"""
+    new_news_ids = []
+    for news_entry in sto_news.get_sto_news():
+        new_news_ids.append(news_entry['id'])
+        if news_entry['id'] not in self.sto_news:
+            for guild in self.confs:
+                this_guild = self.confs[guild]
+                if this_guild['stoNewsChannel'] != '0':
+                    try:
+                        await self.get_channel(int(this_guild['stoNewsChannel'])).send(
+                            embed=make_embed(news_entry['title'], news_entry['summary'], 0x1356e8, news_entry['images']['img_microsite_thumbnail']['url'], {}))
+                    except discord.Forbidden:
+                        await bot.get_guild(int(guild)).owner.send(
+                            "Nath-bot is enabled on your server but does not have the permissions to send messages to the sto news channel channel though a channel is set for it.")
+                    except discord.HTTPException:
+                        logger.error(HTTP_ERROR)
+    self.sto_news = new_news_ids
+    f = open('sto_news.txt', 'w')
+    f.write(str(new_news_ids))
+    f.close()
 
 
 @tasks.loop(seconds=60)
