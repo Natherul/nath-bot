@@ -787,7 +787,7 @@ async def sto_news_check(self):
                 if this_guild['stoNewsChannel'] != '0':
                     try:
                         await self.get_channel(int(this_guild['stoNewsChannel'])).send(
-                            embed=make_embed(news_entry['title'], news_entry['summary'], 0x1356e8, news_entry['images']['img_microsite_thumbnail']['url'], {}))
+                            embed=make_embed(news_entry['title'], news_entry['summary'], 0x1356e8, news_entry['images']['img_microsite_thumbnail']['url'], {'Article Link' : news_entry['article_link']}))
                     except discord.Forbidden:
                         await bot.get_guild(int(guild)).owner.send(
                             "Nath-bot is enabled on your server but does not have the permissions to send messages to the sto news channel channel though a channel is set for it.")
