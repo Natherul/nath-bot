@@ -134,7 +134,7 @@ async def on_ready():
         logger.info('Logged in as')
         logger.info(bot.user.name)
         logger.info(bot.user.id)
-        logger.info('loading old scrape')
+        logger.info('Loading old scrape')
         # load last scrape
         f = open('result.txt', 'r')
         result_string = f.read()
@@ -145,10 +145,12 @@ async def on_ready():
         l = open('lastcity.txt', 'r')
         bot.lastCityTime = l.read()
         l.close()
+        logger.info('Loading prior STO news')
         # load previos news to know if there is new news
         f = open('sto_news.txt', 'r')
         bot.sto_news = json.loads(f.read())
         f.close()
+        logger.info('Loading guild configuration')
         # the configurations for the diff disc servers
         g = open(CONFIGURATION, 'r')
         bot.confs = json.loads(g.read().replace("'", '"'))
@@ -163,6 +165,7 @@ async def on_ready():
                     remake = True
 
         if remake:
+            logger.debug('Configuration missed in guild config. Remaking')
             c = open(CONFIGURATION, 'w')
             c.write(str(bot.confs))
             c.close()
@@ -345,7 +348,7 @@ async def announce(ctx, message: str):
                         embed=make_embed("Announcement from Natherul", message, 0x00ff00, ANNOUNCE_ICON,
                                          {}))
                 except (discord.Forbidden, ValueError, TypeError):
-                    logger.warning("announcement channel wrong in: " + str(this_guild) + " removing the announce channel from it")
+                    logger.warning("Announcement channel wrong in: " + str(this_guild) + " removing the announce channel from it")
                     this_guild['announceChannel'] = "0"
                     bot.confs[str(ctx.guild.id)] = this_guild
                     save_conf()
@@ -793,7 +796,8 @@ async def sto_news_check(self):
                             "Nath-bot is enabled on your server but does not have the permissions to send messages to the sto news channel channel though a channel is set for it.")
                     except discord.HTTPException:
                         logger.error(HTTP_ERROR)
-    self.sto_news = new_news_ids
+    all_news_ids = self.sto_news + new_news_ids
+    self.sto_news = all_news_ids
     f = open('sto_news.txt', 'w')
     f.write(str(new_news_ids))
     f.close()
