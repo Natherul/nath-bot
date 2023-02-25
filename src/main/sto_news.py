@@ -3,6 +3,7 @@ import requests
 
 
 def get_sto_news():
+    """Method to get the news from arc"""
     response = requests.get(
         'https://api.arcgames.com/v1.0/games/sto/news?tag=*&limit=10&offset=0&field[]=images.img_microsite_thumbnail&field[]=platforms',
         headers={'DNT' : '1'}).json()['news']

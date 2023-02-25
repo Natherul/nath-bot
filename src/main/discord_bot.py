@@ -185,7 +185,8 @@ async def on_ready():
 
 @bot.event
 async def on_guild_join(guild):
-    """When the bot joins a new server it will configure itself with the values it needs saved"""
+    """When the bot joins a new server it will configure itself with the values it needs saved
+    :param guild: The guild it happened on"""
     if guild.id not in bot.confs:
         this_guild = bot.allconf
         bot.confs[str(guild.id)] = this_guild
@@ -200,7 +201,8 @@ async def on_guild_join(guild):
 
 @bot.event
 async def on_guild_remove(guild):
-    """When the bot gets removed from a server we set the config to not be enabled on that server"""
+    """When the bot gets removed from a server we set the config to not be enabled on that server
+    :param guild: The guild it happened on"""
     this_guild = bot.confs[str(guild.id)]
     this_guild['enabled'] = '0'
     bot.confs[str(guild.id)] = this_guild
@@ -209,12 +211,18 @@ async def on_guild_remove(guild):
 
 @tree.command(name="help", description="The help command for the bot")
 async def helpmessage(ctx):
+    """Send a helpmessage with what the bot can do
+    :param ctx: The context that triggered this command"""
     await ctx.response.send_message(embed=make_embed("Available Commands", "These are the commands that you can use", 0xfa00f2, QUESTION_ICON, bot.commandDescriptions))
 
 
 @tree.command(name="add", description="Command group to add pings or events")
 @app_commands.describe(type="What to add", args="Event parameters")
 async def add(ctx, type: Literal['FortPing', 'CityPing', 'Event', 'Channel'], args: Optional[str]):
+    """Command to add something into configuration
+    :param ctx: The context that triggered the command
+    :param type: The type to add
+    :param args: Optional (may not be optional depending on type) parameters for the add"""
     this_guild = bot.confs[str(ctx.guild.id)]
     if "FortPing" == type:
         if this_guild['fortPing'] != '0':
@@ -280,6 +288,10 @@ async def add(ctx, type: Literal['FortPing', 'CityPing', 'Event', 'Channel'], ar
 @tree.command(name="remove", description="Command group to remove pings or events")
 @app_commands.describe(type="What to remove", args="Event parameters")
 async def remove(ctx, type: Literal['FortPing', 'CityPing', 'Event'], args: Optional[str]):
+    """Command to remove something from configuration
+    :param ctx: The context that triggered this command
+    :param type: The type to remove
+    :param args: Optional (may not be optional depending on type) identifier for the removal"""
     this_guild = bot.confs[str(ctx.guild.id)]
     if "FortPing" == type:
         if this_guild['fortPing'] != '0':
@@ -325,6 +337,9 @@ async def remove(ctx, type: Literal['FortPing', 'CityPing', 'Event'], args: Opti
 @tree.command(name="list", description="Command group to list events")
 @app_commands.describe(type="What to list")
 async def list(ctx, type: Literal['Event']):
+    """Command to list configuration
+    :param ctx: The context that triggered this command
+    :param type: The type to list"""
     this_guild = bot.confs[str(ctx.guild.id)]
     if type == "Event":
         events = this_guild['events']
@@ -339,6 +354,9 @@ async def list(ctx, type: Literal['Event']):
 @tree.command(name="announce", description="Announce things through all servers the bot is present on", guild=discord.Object(id=bot.TUE))
 @app_commands.describe(message="What to announce")
 async def announce(ctx, message: str):
+    """Announce command, this is only used by Nath to send info to all servers the bot is present on
+    :param ctx: The context that triggered this command
+    :param message: The message to announce"""
     if ctx.user.id == 173443339025121280:
         for guild in bot.confs:
             this_guild = bot.confs[guild]
@@ -362,6 +380,10 @@ async def announce(ctx, message: str):
 @app_commands.describe(option="What setting to change", args="The setting for the option")
 @app_commands.default_permissions(administrator=True)
 async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'leaveMessage', 'boardingChannel', 'stoNewsChannel', 'fortPing', 'cityPing', 'moderator', 'chatModeration', 'allowTempChannels', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
+    """Configure command for owners to configure their server
+    :param ctx: The context that triggered this command
+    :param option: The option to change
+    :param args: Optional (may not be optional based on option) identifier"""
     if ctx.user.id == ctx.guild.owner.id or ctx.user.id == 173443339025121280:
         if str(ctx.guild.id) not in bot.confs.keys():
             this_guild = bot.allconf
@@ -418,6 +440,10 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
 @app_commands.describe(member="The member to kick", reason="The reason for the kick")
 @app_commands.default_permissions(kick_members=True)
 async def kick_member(ctx, member : discord.Member, reason : str):
+    """Method to kick someone from the guild
+    :param ctx: Context that triggered this command
+    :param member: The member to kick
+    :param reason: The reason for the kick (will be logged)"""
     try:
         if member.id == bot.user.id:
             await ctx.response.send_message("You cannot kick the bot")
@@ -445,6 +471,10 @@ async def kick_member(ctx, member : discord.Member, reason : str):
 @app_commands.describe(member="The member to ban", reason="The reason for the ban")
 @app_commands.default_permissions(ban_members=True)
 async def ban_member(ctx, member : discord.Member, reason : str):
+    """Method to ban member from the guild
+    :param ctx: The context that triggered this command
+    :param member: The member to ban
+    :param reason: The reason for the ban (will be logged)"""
     try:
         if member.id == bot.user.id:
             await ctx.response.send_message("You cannot ban the bot")
@@ -472,6 +502,10 @@ async def ban_member(ctx, member : discord.Member, reason : str):
 @app_commands.describe(number="The number of messages to delete", reason="The reason for the purge")
 @app_commands.default_permissions(manage_messages=True)
 async def purge(ctx, number : int, reason : str):
+    """Method to purge X amount of messages from a channel
+    :param ctx: The context which triggered this command
+    :param number: The number of messages to remove from the channel in the context
+    :param reason: The reason for the purge (will be logged)"""
     this_guild = bot.confs[str(ctx.guild.id)]
     if not is_mod(ctx.user.roles, this_guild):
         await ctx.response.send_message(NOT_MOD_STRING)
@@ -493,17 +527,23 @@ async def purge(ctx, number : int, reason : str):
 
 @tree.command(name="citystat", description="Command to return the stats for cities in RoR")
 async def citystat(ctx):
+    """Command to get stats about city contests in RoR
+    :param ctx: The context that triggered this command"""
     await ctx.response.send_message("Current gathered stats for cities", file=File('citystat.csv'))
 
 
 @tree.command(name="fortstat", description="Command to return the stats for forts in RoR")
 async def fortstat(ctx):
+    """Command to get stats about fort wins in RoR
+    :param ctx: The context that triggered this command"""
     await ctx.response.send_message("Current gathered stats for forts", file=File('fortstat.csv'))
 
 
 @tree.command(name="debug", description="Debug command to print information that Nath will want to troubleshoot issues")
 @app_commands.default_permissions(administrator=True)
 async def debug(ctx):
+    """Command to print all saved config of a guild
+    :param ctx: The context of the trigger of command"""
     this_guild = bot.confs[str(ctx.guild.id)]
     await ctx.response.send_message(embed=make_embed("These are the current settings for this server", "", 0xd8de0c,
                                                 QUESTION_ICON,
@@ -513,6 +553,9 @@ async def debug(ctx):
 @tree.command(name="editannounce", description="Edit previous announcement", guild=discord.Object(id=bot.TUE))
 @app_commands.describe(message="What to edit the message to")
 async def edit_announce(ctx, message: str):
+    """Method to edit prior announces, only used by Nath
+    :param ctx: The context that triggered this command
+    :param message: The new message content"""
     if ctx.user.id == 173443339025121280:
         for old_message in bot.lastAnnounceMessage:
             bot.lastAnnounceMessage[old_message].edit(
@@ -524,7 +567,8 @@ async def edit_announce(ctx, message: str):
 
 @bot.event
 async def on_message(message):
-    """This is the method to check content of someone's message"""
+    """This is the method to check content of someone's message
+    :param message: The message that the bot intercepted"""
     # do not listen to bots own messages
     if message.author.id == bot.user.id:
         return
@@ -553,7 +597,8 @@ async def on_message(message):
 
 @bot.event
 async def on_member_join(member):
-    """If someone joins a guild the bot (if configured to do so) will greet them"""
+    """If someone joins a guild the bot (if configured to do so) will greet them
+    :param member: The member that joined"""
     guild = bot.confs[str(member.guild.id)]
     if guild['boardingChannel'] != '0' and guild['welcomeMessage'] != '0':
         message = message_formatter_member(guild['welcomeMessage'], member, False)
@@ -569,7 +614,8 @@ async def on_member_join(member):
 @bot.event
 async def on_member_remove(member):
     """If a member leaves the server the bot will (if configured to do so) say that they left as well as
-     check if the leaving was because of a moderator action."""
+     check if the leaving was because of a moderator action.
+     :param member: The member that left or got kicked/banned"""
     guild = bot.confs[str(member.guild.id)]
     if guild['removeAnnounce'] != '0' and guild['logChannel'] != '0':
         this_guild = bot.get_guild(member.guild.id) 
@@ -606,7 +652,9 @@ async def on_member_remove(member):
 
 @bot.event
 async def on_member_update(before, after):
-    """If a member get edited the bot will check if it was due to a moderator action and log that"""
+    """If a member get edited the bot will check if it was due to a moderator action and log that
+    :param before: The member object before changes
+    :param after: The member object after changes"""
     guild = bot.confs[str(before.guild.id)]
     if guild['logChannel'] == '0':
         return
@@ -657,7 +705,9 @@ async def on_member_update(before, after):
 
 @bot.event
 async def on_message_edit(before, after):
-    """If a message gets edited the bot can announce that someone has changed their message"""
+    """If a message gets edited the bot can announce that someone has changed their message
+    :param before: The message object before changes
+    :param after: The message object after changes"""
     guild = bot.confs[str(before.guild.id)]
     if guild['logChannel'] == '0':
         return
@@ -686,7 +736,8 @@ async def on_message_edit(before, after):
 
 @bot.event
 async def on_message_delete(message):
-    """If a message gets deleted the bot can find it and see if it was done by a moderator or its author"""
+    """If a message gets deleted the bot can find it and see if it was done by a moderator or its author
+    :param message: The message that got deleted"""
     guild = bot.confs[str(message.guild.id)]
     if guild['logChannel'] == '0' or bot.lastDeletedMessage == message.content:
         return
@@ -708,7 +759,8 @@ async def on_message_delete(message):
 
 @bot.event
 async def on_thread_create(thread):
-    """If a thread is created the bot should see it and log it if logging is on"""
+    """If a thread is created the bot should see it and log it if logging is on
+    :param thread: The thread object that got created"""
     guild = bot.confs[str(thread.guild.id)]
     if guild['logChannel'] == '0':
         return
@@ -730,7 +782,8 @@ async def on_thread_create(thread):
 
 @bot.event
 async def on_thread_delete(thread):
-    """If a thread is removed then the bot should log it if logging is on"""
+    """If a thread is removed then the bot should log it if logging is on
+    :param thread: The thread object that got deleted"""
     guild = bot.confs[str(thread.guild.id)]
     if guild['logChannel'] == '0':
         return
@@ -752,7 +805,9 @@ async def on_thread_delete(thread):
 
 @bot.event
 async def on_thread_update(before, after):
-    """If the thread gets updated the bot should log it if logging is on"""
+    """If the thread gets updated the bot should log it if logging is on
+    :param before: The thread object before changes
+    :param after: The thread object after changes"""
     guild = bot.confs[str(before.guild.id)]
     if guild['logChannel'] == '0':
         return
@@ -780,7 +835,8 @@ async def on_thread_update(before, after):
 
 @tasks.loop(minutes=10)
 async def sto_news_check(self):
-    """Method to check for new news items from star trek online"""
+    """Method to check for new news items from star trek online
+    :param self: The bot object"""
     new_news_ids = []
     for news_entry in sto_news.get_sto_news():
         if int(news_entry['id']) not in self.sto_news:
@@ -805,7 +861,8 @@ async def sto_news_check(self):
 
 @tasks.loop(seconds=60)
 async def event_check(self):
-    """Help method to see if we need to announce that an event is happening soon"""
+    """Help method to see if we need to announce that an event is happening soon
+    :param self: The bot object"""
     for guild in self.confs:
         this_guild = self.confs[guild]
         if this_guild['eventChannel'] != '0':
@@ -829,7 +886,8 @@ async def event_check(self):
 
 @tasks.loop(seconds=60)
 async def channel_check(self):
-    """Help method to check for channels created by the bot that is not empty and should be deleted"""
+    """Help method to check for channels created by the bot that is not empty and should be deleted
+    :param self: The bot object"""
     for guild in self.confs:
         this_guild = self.confs[guild]
         to_remove = []
@@ -853,7 +911,10 @@ async def channel_check(self):
 
 
 def is_mod(user_roles, this_guild):
-    """Help method to see if the current user roles contain the set moderator role for the server"""
+    """Help method to see if the current user roles contain the set moderator role for the server
+    :param user_roles: the toles of a user
+    :param this_guild: The guild configuration
+    :return if the user is part of the configured mod group (boolean)"""
     for role in user_roles:
         if role.name == this_guild['moderator']:
             return True
@@ -862,7 +923,11 @@ def is_mod(user_roles, this_guild):
 
 
 def message_formatter_member(message, member, is_leaving):
-    """Help function to substitute member specific message parts"""
+    """Help function to substitute member specific message parts
+    :param message: The message to format
+    :param member: the member that the edit is about
+    :param is_leaving: boolean if the message is a leave message or not
+    :return a formatted message where entries has been replaced as wanted"""
     return message.format(
         display_name=member.display_name,
         id=member.id, name=member.name,
@@ -870,7 +935,13 @@ def message_formatter_member(message, member, is_leaving):
 
 
 def make_embed(title, description, colour, thumbnail, fields):
-    """Help method to make embed messages which are prettier"""
+    """Help method to make embed messages which are prettier
+    :param title: the title of the embed
+    :param description: The description of the event
+    :param colour: The colout that the embed gets
+    :param thumbnail: A thumbnail for the embed (optional)
+    :param fields: A dict with other fields to be embedded (optional)
+    :return the embed object"""
     embed_var = discord.Embed(title=title, description=description, color=colour)
     if thumbnail != "":
         embed_var.set_thumbnail(url=thumbnail)
@@ -880,7 +951,11 @@ def make_embed(title, description, colour, thumbnail, fields):
 
 
 def add_event(message, guildid, user):
-    """Help method to add an event into the servers list of coming events"""
+    """Help method to add an event into the servers list of coming events
+    :param message: The message of the event
+    :param guildid: The id of the guild event belongs to
+    :param user: The user that is the host of the event
+    :return if it was successfully created or not (boolean)"""
     now = str(time.time()).split('.')[0]
     this_guild = bot.confs[str(guildid)]
     events = this_guild['events']
@@ -900,7 +975,10 @@ def add_event(message, guildid, user):
 
 
 def remove_event(guildid, id):
-    """Help method to remove an event from a servers list of coming events"""
+    """Help method to remove an event from a servers list of coming events
+    :param guildid: the id of the guild
+    :param id: id of the event
+    :return if a event was removed or not (boolean)"""
     this_guild = bot.confs[str(guildid)]
     events = this_guild['events']
     found = False
