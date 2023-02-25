@@ -783,8 +783,8 @@ async def sto_news_check(self):
     """Method to check for new news items from star trek online"""
     new_news_ids = []
     for news_entry in sto_news.get_sto_news():
-        new_news_ids.append(news_entry['id'])
-        if news_entry['id'] not in self.sto_news:
+        if int(news_entry['id']) not in self.sto_news:
+            new_news_ids.append(news_entry['id'])
             for guild in self.confs:
                 this_guild = self.confs[guild]
                 if this_guild['stoNewsChannel'] != '0':
