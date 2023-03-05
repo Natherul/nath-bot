@@ -147,9 +147,7 @@ async def on_ready():
         l.close()
         logger.info('Loading prior STO news')
         # load previos news to know if there is new news
-        f = open('sto_news.txt', 'r')
-        bot.sto_news = json.loads(f.read())
-        f.close()
+        load_list(bot.sto_news, 'sto_news.txt')
         logger.info('Loading guild configuration')
         # the configurations for the diff disc servers
         g = open(CONFIGURATION, 'r')
@@ -839,8 +837,8 @@ async def sto_news_check(self):
     :param self: The bot object"""
     new_news_ids = []
     for news_entry in sto_news.get_sto_news():
-        if int(news_entry['id']) not in self.sto_news:
-            new_news_ids.append(news_entry['id'])
+        if str(news_entry['id']) not in self.sto_news:
+            new_news_ids.append(str(news_entry['id']))
             for guild in self.confs:
                 this_guild = self.confs[guild]
                 if this_guild['stoNewsChannel'] != '0':
@@ -855,7 +853,7 @@ async def sto_news_check(self):
     all_news_ids = self.sto_news + new_news_ids
     self.sto_news = all_news_ids
     f = open('sto_news.txt', 'w')
-    f.write(str(new_news_ids))
+    f.write(str(all_news_ids))
     f.close()
 
 
@@ -995,6 +993,17 @@ def save_conf():
     g = open(CONFIGURATION, 'w')
     g.write(str(bot.confs))
     g.close()
+
+
+def load_list(variable, file_path):
+    """Helper method to load a list from file
+    :param variable: The variable to load the list into
+    :param file_path: The path to the list to load"""
+    f = open(file_path, 'r')
+    content = f.read()
+    f.close()
+    for element in content.replace('[', '').replace(']', '').replace('"', '').replace("'", '').strip().split(','):
+        variable.append(str(element.strip()))
 
 
 bot.run(TOKEN, log_handler=h1)
