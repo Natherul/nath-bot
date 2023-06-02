@@ -4,7 +4,11 @@ import json
 url = 'https://www.soronline.us/api/get.php'
 myobj = {'api': 'ee6bd4a1-6e0b-475b-a4b0-4e18d4a66cb5'}
 
+
 def scrape():
+    """DEPRECATED! Scrapes the soronline API for updates
+    :return: dictionary of open zones
+    :rtype: dict"""
     x = requests.post(url, data = myob, timeout=10).json()
     data = json.loads(x[0]['data'])
     
@@ -30,7 +34,7 @@ def scrape():
     if "servmsg" in data:
         openzones['Server'] = data['servmsg']
 
-    #early city detection
+    # early city detection
     if "zonelocks" in data:
         destrocount = 0
         ordercount = 0

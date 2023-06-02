@@ -912,7 +912,8 @@ def is_mod(user_roles, this_guild):
     """Help method to see if the current user roles contain the set moderator role for the server
     :param user_roles: the toles of a user
     :param this_guild: The guild configuration
-    :return if the user is part of the configured mod group (boolean)"""
+    :return: if the user is part of the configured mod group (boolean)
+    :rtype: bool"""
     for role in user_roles:
         if role.name == this_guild['moderator']:
             return True
@@ -925,7 +926,8 @@ def message_formatter_member(message, member, is_leaving):
     :param message: The message to format
     :param member: the member that the edit is about
     :param is_leaving: boolean if the message is a leave message or not
-    :return a formatted message where entries has been replaced as wanted"""
+    :return: a formatted message where entries has been replaced as wanted
+    :rtype: str"""
     return message.format(
         display_name=member.display_name,
         id=member.id, name=member.name,
@@ -939,7 +941,8 @@ def make_embed(title, description, colour, thumbnail, fields):
     :param colour: The colout that the embed gets
     :param thumbnail: A thumbnail for the embed (optional)
     :param fields: A dict with other fields to be embedded (optional)
-    :return the embed object"""
+    :return: the embed object
+    :rtype: discord.Embed"""
     embed_var = discord.Embed(title=title, description=description, color=colour)
     if thumbnail != "":
         embed_var.set_thumbnail(url=thumbnail)
@@ -953,7 +956,8 @@ def add_event(message, guildid, user):
     :param message: The message of the event
     :param guildid: The id of the guild event belongs to
     :param user: The user that is the host of the event
-    :return if it was successfully created or not (boolean)"""
+    :return: if it was successfully created or not (boolean)
+    :rtype: bool"""
     now = str(time.time()).split('.')[0]
     this_guild = bot.confs[str(guildid)]
     events = this_guild['events']
@@ -976,7 +980,8 @@ def remove_event(guildid, id):
     """Help method to remove an event from a servers list of coming events
     :param guildid: the id of the guild
     :param id: id of the event
-    :return if a event was removed or not (boolean)"""
+    :return: if an event was removed or not (boolean)
+    :rtype: bool"""
     this_guild = bot.confs[str(guildid)]
     events = this_guild['events']
     found = False

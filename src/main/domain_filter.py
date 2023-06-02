@@ -29,6 +29,7 @@ domain_filter_list = [  # Malicious links
 
 shortener_domains = ['t.ly', 'bit.ly', 'ow.ly', 'tinyurl.com']
 
+
 def download_files():
     """This method will make sure the directory for the bot is present and then download all the files"""
     if not os.path.exists('domain_filters'):
