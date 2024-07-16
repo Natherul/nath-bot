@@ -9,10 +9,6 @@ https://discord.com/oauth2/authorize?client_id=758718771275497559&scope=bot&perm
 
 Once invited you need to configure the bot with the relevant information. Get started with issuing "/configure" in any channel the bot can see.
 
-**Support**:
-
-If you need any help which is not a bug please join https://www.guilded.gg/i/1EqWJ75k (no account is needed) and Ill try and help there.
-
 **THIS PART BELOW IS FOR SELFHOSTING ONLY**:
 
 Note that this is only for selfhosting the bot and it will be run as a python script. It comes with two files:
