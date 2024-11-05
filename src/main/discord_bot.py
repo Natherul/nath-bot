@@ -91,7 +91,8 @@ bot.configDesc = {'announceChannel' : '(String/int)What channel to post campaign
                   'eventChannel' : '(String/int)What channel to post event messages to (either channel name or channelID specified)',
                   'chatModeration' : '(bool as int)If the bot should moderate chat messages',
                   'allowTempChannels' : '(bool as int)If anyone is allowed to ask the bot to make temporary voice channels',
-                  'stoNewsChannel' : '(String/int)What channel if any to post news from Star trek online. (either channel name or channelID specified)'}
+                  'stoNewsChannel' : '(String/int)What channel if any to post news from Star trek online. (either channel name or channelID specified)',
+                  'ignoredLogChannels' : '(String/int)What channels if any to exclude from logging changes in (comma separated if multiple channels)'}
 
 bot.allconf = {'announceChannel' : '0',
                'logChannel' : '0',
@@ -108,7 +109,8 @@ bot.allconf = {'announceChannel' : '0',
                'moderator' : '0',
                'chatModeration' : '0',
                'tempChannels' : [],
-               'stoNewsChannel' : '0'}
+               'stoNewsChannel' : '0',
+               'ignoredLogChannels' : []}
 
 
 bot.confs = {}
@@ -377,7 +379,7 @@ async def announce(ctx, message: str):
 @tree.command(name="configure", description="Command group to configure the bot on your server")
 @app_commands.describe(option="What setting to change", args="The setting for the option")
 @app_commands.default_permissions(administrator=True)
-async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'leaveMessage', 'boardingChannel', 'stoNewsChannel', 'fortPing', 'cityPing', 'moderator', 'chatModeration', 'allowTempChannels', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'help'], args: Optional[str]):
+async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welcomeMessage', 'leaveMessage', 'boardingChannel', 'stoNewsChannel', 'fortPing', 'cityPing', 'moderator', 'chatModeration', 'allowTempChannels', 'removeAnnounce', 'announceServmsg', 'eventChannel', 'ignoredLogChannels', 'help'], args: Optional[str]):
     """Configure command for owners to configure their server
     :param ctx: The context that triggered this command
     :param option: The option to change
@@ -423,6 +425,13 @@ async def configure(ctx, option: Literal['announceChannel', 'logChannel', 'welco
                 bot.confs[str(ctx.guild.id)] = this_guild
                 await ctx.response.send_message(option + NOW_SET_TO_ + args)
                 save_conf()
+        elif option in ('ignoreLogChannels'):
+            channels = args.split(',')
+            this_guild = bot.confs[str(ctx.guild.id)]
+            this_guild[option] = channels
+            bot.confs[str(ctx.guild.id)] = this_guild
+            await ctx.response.send_message(option + NOW_SET_TO_ + args)
+            save_conf()
         # Currently this is only welcomeMessage/leaveMessage, but it can be set directly.
         else:
             this_guild = bot.confs[str(ctx.guild.id)]
@@ -707,7 +716,7 @@ async def on_message_edit(before, after):
     :param before: The message object before changes
     :param after: The message object after changes"""
     guild = bot.confs[str(before.guild.id)]
-    if guild['logChannel'] == '0':
+    if guild['logChannel'] == '0' or before.channel in guild['ignoredLogChannels']:
         return
 
     try:
