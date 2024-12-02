@@ -746,7 +746,7 @@ async def on_message_delete(message):
     """If a message gets deleted the bot can find it and see if it was done by a moderator or its author
     :param message: The message that got deleted"""
     guild = bot.confs[str(message.guild.id)]
-    if guild['logChannel'] == '0' or bot.lastDeletedMessage == message.content:
+    if guild['logChannel'] == '0' or bot.lastDeletedMessage == message.content or message.channel in guild['ignoredLogChannels']:
         return
     try:
         this_guild = bot.get_guild(message.guild.id)
@@ -769,7 +769,7 @@ async def on_thread_create(thread):
     """If a thread is created the bot should see it and log it if logging is on
     :param thread: The thread object that got created"""
     guild = bot.confs[str(thread.guild.id)]
-    if guild['logChannel'] == '0':
+    if guild['logChannel'] == '0' or thread.channel in guild['ignoredLogChannels']:
         return
     try:
         this_guild = bot.get_guild(thread.guild.id)
@@ -792,7 +792,7 @@ async def on_thread_delete(thread):
     """If a thread is removed then the bot should log it if logging is on
     :param thread: The thread object that got deleted"""
     guild = bot.confs[str(thread.guild.id)]
-    if guild['logChannel'] == '0':
+    if guild['logChannel'] == '0' or thread.channel in guild['ignoredLogChannels']:
         return
     try:
         this_guild = bot.get_guild(thread.guild.id)
@@ -816,7 +816,7 @@ async def on_thread_update(before, after):
     :param before: The thread object before changes
     :param after: The thread object after changes"""
     guild = bot.confs[str(before.guild.id)]
-    if guild['logChannel'] == '0':
+    if guild['logChannel'] == '0' or before.channel in guild['ignoredLogChannels']:
         return
     try:
         if before.starter_message != after.starter_message:
