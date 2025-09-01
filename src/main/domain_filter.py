@@ -10,7 +10,6 @@ COUNTER__TXT = "domain_filters/{counter}.txt"
 
 domain_filter_list = [  # Malicious links
                       'https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt',
-                      'https://osint.digitalside.it/Threat-Intel/lists/latestdomains.txt',
                       'https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt',
                       'https://v.firebog.net/hosts/Prigent-Crypto.txt',
                       'https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Risk/hosts',
