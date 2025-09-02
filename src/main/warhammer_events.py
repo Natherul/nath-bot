@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord.message import Message
 from discord.ui import Button, View
 from typing import Literal
 import json
@@ -89,13 +90,16 @@ class signup_button(discord.ui.Button):
         # Add the user to the sign-up list with a 'pending' status.
         if not found:
             event['signups'].append({
-                'user': user,
+                'user_id': user.id,
+                'user_name': user.display_name,
                 'career': CAREERS[career_id],
                 'status': 'Pending'
             })
 
         # Update the event message with the new sign-up list.
         await update_event_embed(interaction.message, event)
+        with open('warhammer_events.json', 'w') as f:
+            json.dump(events, f, indent=4)
 
         # Send an ephemeral message to the user confirming their sign-up.
         if not removed:
@@ -130,7 +134,7 @@ def create_event_embed(event: dict):
         description=event['description'],
         color=discord.Color.blue()
     )
-    embed.set_author(name=f"Event by {event['organizer'].name}", icon_url=event['organizer'].avatar)
+    embed.set_author(name=f"Event by {event['organizer_name']}", icon_url=event['organizer_avatar'])
     embed.set_footer(text="Click a button below to sign up!")
 
     # Group sign-ups by status.
@@ -140,17 +144,17 @@ def create_event_embed(event: dict):
 
     # Create the fields for the embed.
     accepted_text = "\n".join([
-        f"**{s['user'].display_name}** ({s['career']['name']})" for s in accepted_signups
+        f"**{s['user_name']}** ({s['career']['name']})" for s in accepted_signups
     ]) or "No one has been accepted yet."
     embed.add_field(name="✅ Accepted", value=accepted_text, inline=False)
 
     pending_text = "\n".join([
-        f"**{s['user'].display_name}** ({s['career']['name']})" for s in pending_signups
+        f"**{s['user_name']}** ({s['career']['name']})" for s in pending_signups
     ]) or "No pending sign-ups."
     embed.add_field(name="⏳ Pending", value=pending_text, inline=False)
 
     rejected_text = "\n".join([
-        f"**{s['user'].display_name}** ({s['career']['name']})" for s in rejected_signups
+        f"**{s['user_name']}** ({s['career']['name']})" for s in rejected_signups
     ]) or "No rejected sign-ups."
     # Only add the rejected field if there are rejected people to keep it clean.
     if rejected_signups:
@@ -162,7 +166,8 @@ def create_event_embed(event: dict):
 async def update_event_embed(message: discord.Message, event: dict):
     """Method to update an existing embed"""
     embed = create_event_embed(event)
-    await message.edit(embed=embed, view=EventView(event['organizer'].id, events, event['faction']))
+    await message.edit(embed=embed, view=EventView(event['organizer_id'], events, event['faction']))
+
 
 class WarhammerEvents(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -187,15 +192,16 @@ class WarhammerEvents(commands.Cog):
             return
 
         event = events[message_id]
-        if event['organizer'].id != interaction.user.id:
+        if event['organizer_id'] != interaction.user.id:
             await interaction.response.send_message("You are not the owner of this event.", ephemeral=True)
             return
 
-        event['status'] = 'Canceled'
-        await update_event_embed(interaction.message, event)
+        await interaction.response.defer()
+        await (await interaction.channel.fetch_message(message_id)).delete()
         events.pop(message_id)
         with open('warhammer_events.json', 'w') as f:
             json.dump(events, f, indent=4)
+        await interaction.followup.send("Event cancelled", ephemeral=True)
 
 
     @discord.app_commands.command(name="create_ror_event", description="Create a new Warhammer Online event.")
@@ -215,7 +221,9 @@ class WarhammerEvents(commands.Cog):
         event_data = {
             'title': title,
             'description': description,
-            'organizer': organizer,
+            'organizer_id': organizer.id,
+            'organizer_name': organizer.display_name,
+            'organizer_avatar': organizer.display_avatar.url,
             'signups': [],
             'faction': faction
         }
@@ -262,16 +270,16 @@ class WarhammerEvents(commands.Cog):
         event = events[message_id]
 
         # Check if the command user is the event organizer.
-        if interaction.user.id != event['organizer'].id:
+        if interaction.user.id != event['organizer_id']:
             await interaction.response.send_message("You are not the organizer of this event.", ephemeral=True)
             return
 
         # Find the user in the sign-up list.
         for signup in event['signups']:
-            if signup['user'].id == user.id:
+            if signup['user_id'] == user.id:
                 signup['status'] = 'Accepted'
                 await update_event_embed(await interaction.channel.fetch_message(message_id), event)
-                await interaction.response.send_message(f"Accepted {signup['user'].display_name}'s sign-up.", ephemeral=True)
+                await interaction.response.send_message(f"Accepted {signup['user_name']}'s sign-up.", ephemeral=True)
                 return
 
         await interaction.response.send_message(f"{user.display_name} is not in the sign-up list.", ephemeral=True)
@@ -300,16 +308,16 @@ class WarhammerEvents(commands.Cog):
         event = events[message_id]
 
         # Check if the command user is the event organizer.
-        if interaction.user.id != event['organizer'].id:
+        if interaction.user.id != event['organizer_id']:
             await interaction.response.send_message("You are not the organizer of this event.", ephemeral=True)
             return
 
         # Find the user in the sign-up list.
         for signup in event['signups']:
-            if signup['user'].id == user.id:
+            if signup['user_id'] == user.id:
                 signup['status'] = 'Rejected'
                 await update_event_embed(await interaction.channel.fetch_message(message_id), event)
-                await interaction.response.send_message(f"Rejected {signup['user'].display_name}'s sign-up.", ephemeral=True)
+                await interaction.response.send_message(f"Rejected {signup['user_name']}'s sign-up.", ephemeral=True)
                 return
 
         await interaction.response.send_message(f"{user.display_name} is not in the sign-up list.", ephemeral=True)
