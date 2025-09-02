@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 from discord.ui import Button, View
 from typing import Literal
+import json
+import os
 
 
 # A simple in-memory dictionary to store event data.
@@ -53,6 +55,7 @@ class signup_button(discord.ui.Button):
 
     # This method is called whenever a button is pressed.
     async def callback(self, interaction: discord.Interaction):
+        """Callback for when a button is pressed"""
         # Find the event data from our global dictionary using the message ID.
         event_id = interaction.message.id
         # Access the events dictionary via the instance attribute
@@ -121,6 +124,7 @@ class EventView(View):
 
 # Helper function to create/update the embed.
 def create_event_embed(event: dict):
+    """create an embed for an event"""
     embed = discord.Embed(
         title=event['title'],
         description=event['description'],
@@ -156,6 +160,7 @@ def create_event_embed(event: dict):
 
 # Helper function to update an existing event message.
 async def update_event_embed(message: discord.Message, event: dict):
+    """Method to update an existing embed"""
     embed = create_event_embed(event)
     await message.edit(embed=embed, view=EventView(event['organizer'].id, events, event['faction']))
 
@@ -166,6 +171,31 @@ class WarhammerEvents(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         print(f'Cog {self.qualified_name} is ready.')
+
+
+    @discord.app_commands.command(name="cancel_ror_event", description="Cancel an event")
+    async def remove_event_cancellation(self, interaction: discord.Interaction, message_id: str):
+        """Cancel an event"""
+        if not message_id.isdigit():
+            await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
+            return
+
+        message_id = int(message_id)
+
+        if message_id not in events:
+            await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
+            return
+
+        event = events[message_id]
+        if event['organizer'].id != interaction.user.id:
+            await interaction.response.send_message("You are not the owner of this event.", ephemeral=True)
+            return
+
+        event['status'] = 'Canceled'
+        await update_event_embed(interaction.message, event)
+        events.pop(message_id)
+        with open('warhammer_events.json', 'w') as f:
+            json.dump(events, f, indent=4)
 
 
     @discord.app_commands.command(name="create_ror_event", description="Create a new Warhammer Online event.")
@@ -205,6 +235,8 @@ class WarhammerEvents(commands.Cog):
         
         # Store the event data using the message ID as the key.
         events[sent_message.id] = event_data
+        with open('warhammer_events.json', 'w') as file:
+            json.dump(events, file, indent=4)
 
 
     @discord.app_commands.command(name="accept_ror_signup", description="Accept a sign-up for an event.")
@@ -282,5 +314,10 @@ class WarhammerEvents(commands.Cog):
 
         await interaction.response.send_message(f"{user.display_name} is not in the sign-up list.", ephemeral=True)
 
+
 async def setup(bot: commands.Bot):
+    """Loads the cog"""
+    if os.path.isfile('warhammer_events.json'):
+        with open('warhammer_events.json', 'r') as file:
+            events = json.load(file)
     await bot.add_cog(WarhammerEvents(bot))

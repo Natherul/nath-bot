@@ -157,7 +157,9 @@ async def on_ready():
         logger.info('Processing downloaded files to make a full list of bad domains')
         bot.bad_domains = domain_filter.load_bad_domains()
 
+        logger.info("Loading warhammer events module")
         await bot.load_extension('warhammer_events')
+        logger.info("Loading moderation module")
         await bot.load_extension('moderation')
         logger.info('LOADED')
         channel_check.start(bot)
