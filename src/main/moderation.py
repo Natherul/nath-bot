@@ -6,17 +6,30 @@ from typing import Literal, Optional
 import logging
 import uuid
 
-# Assuming these are defined in your main bot file or elsewhere.
-# These variables would need to be imported or defined in a place accessible to this cog.
-# For this example, we'll assume they exist globally or are passed to the cog.
-# You'll need to define these yourself based on your project structure.
-def make_embed(title, description, color, icon, fields):
-    # Placeholder for a function that creates a discord.Embed
-    pass
+CONFIGURATION = "guilds.txt"
 
-def save_conf():
-    # Placeholder for a function that saves the bot configuration
-    pass
+
+def make_embed(title, description, colour, thumbnail, fields):
+    """Help method to make embed messages which are prettier
+        :param title: the title of the embed
+        :param description: The description of the event
+        :param colour: The colout that the embed gets
+        :param thumbnail: A thumbnail for the embed (optional)
+        :param fields: A dict with other fields to be embedded (optional)
+        :return: the embed object
+        :rtype: discord.Embed"""
+    embed_var = discord.Embed(title=title, description=description, color=colour)
+    if thumbnail != "":
+        embed_var.set_thumbnail(url=thumbnail)
+    for entry in fields:
+        embed_var.add_field(name=entry, value=fields[entry], inline=False)
+    return embed_var
+
+def save_conf(self):
+    """Help method to update the saved configuration of a server"""
+    g = open(CONFIGURATION, 'w')
+    g.write(str(self.bot.confs))
+    g.close()
 
 def is_mod(roles, guild_conf):
     # This is a placeholder for your is_mod function.
@@ -39,15 +52,12 @@ BANNED_ICON = ""
 HTTP_ERROR = "HTTPException occurred."
 NOT_MOD_STRING = "You do not have the moderator role to use this command."
 NOW_SET_TO_ = " is now set to "
+logging = logging.getLogger(__name__)
 
 class Moderation(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot, conf: dict):
         self.bot = bot
-        self.logger = logging.getLogger('discord')
-        
-        # In a real application, you would load these configurations here,
-        # or they would be passed to the bot on startup.
-        self.bot.confs = {} # Placeholder for bot configuration
+        self.bot.confs = conf
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -107,7 +117,7 @@ class Moderation(commands.Cog):
                     current_temp_channels.append(channel.id)
                     this_guild['tempChannels'] = current_temp_channels
                     self.bot.confs[str(interaction.guild.id)] = this_guild
-                    save_conf()
+                    save_conf(self)
                     await interaction.guild.get_member(interaction.user.id).move_to(channel)
                     await interaction.response.send_message("Temporary channel created and user moved to channel.")
                 except (discord.Forbidden, TypeError):
@@ -198,7 +208,7 @@ class Moderation(commands.Cog):
             if str(interaction.guild.id) not in self.bot.confs.keys():
                 this_guild = self.bot.allconf
                 self.bot.confs[str(interaction.guild.id)] = this_guild
-                save_conf()
+                save_conf(self)
                 await interaction.response.send_message("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
             elif option == "help" or args is None:
                 await interaction.response.send_message(embed=make_embed("Available Configure Commands", "These are the configure commands available", 0xfa00f2, QUESTION_ICON, self.bot.configDesc))
@@ -211,7 +221,7 @@ class Moderation(commands.Cog):
                         this_guild[option] = args
                         self.bot.confs[str(interaction.guild.id)] = this_guild
                         await interaction.response.send_message(option + NOW_SET_TO_ + args)
-                        save_conf()
+                        save_conf(self)
                         return
                 await interaction.response.send_message("No channel found with that name or ID")
             elif option in ("fortPing", "cityPing", "moderator"):
@@ -223,7 +233,7 @@ class Moderation(commands.Cog):
                         this_guild[option] = args
                         self.bot.confs[str(interaction.guild.id)] = this_guild
                         await interaction.response.send_message(option + NOW_SET_TO_ + args)
-                        save_conf()
+                        save_conf(self)
                         return
                 await interaction.response.send_message("No role with that name or ID was found")
             elif option in ("removeAnnounce", "announceServmsg", "chatModeration", "allowTempChannels"):
@@ -234,20 +244,20 @@ class Moderation(commands.Cog):
                     this_guild[option] = args
                     self.bot.confs[str(interaction.guild.id)] = this_guild
                     await interaction.response.send_message(option + NOW_SET_TO_ + args)
-                    save_conf()
+                    save_conf(self)
             elif option in ('ignoreLogChannels'):
                 channels = args.split(',')
                 this_guild = self.bot.confs.get(str(interaction.guild.id), {})
                 this_guild[option] = channels
                 self.bot.confs[str(interaction.guild.id)] = this_guild
                 await interaction.response.send_message(option + NOW_SET_TO_ + args)
-                save_conf()
+                save_conf(self)
             else:
                 this_guild = self.bot.confs.get(str(interaction.guild.id), {})
                 this_guild[option] = args
                 self.bot.confs[str(interaction.guild.id)] = this_guild
                 await interaction.response.send_message(option + NOW_SET_TO_ + args)
-                save_conf()
+                save_conf(self)
         else:
             await interaction.response.send_message("You are neither a server owner nor Natherul so configuring the server is not allowed.")
 
@@ -384,4 +394,5 @@ class Moderation(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(Moderation(bot))
+    config_data = getattr(bot, 'config_data', {})
+    await bot.add_cog(Moderation(bot, config_data))

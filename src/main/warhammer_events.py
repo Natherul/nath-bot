@@ -9,8 +9,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import logging
 
 
-# A simple in-memory dictionary to store event data.
-# For a production bot, you would want to use a database like MongoDB or SQLite.
 events = {}
 views = []
 
@@ -21,32 +19,32 @@ logging = logging.getLogger(__name__)
 # Grouped by faction and realm for clarity.
 CAREERS = {
     # Order Faction
-    'knight_of_the_blazing_sun': {'name': 'Knight of the Blazing Sun', 'icon': 'https://imgur.com/1TIekrQ', 'faction': 'Order'},
-    'warrior_priest': {'name': 'Warrior Priest', 'icon': 'https://imgur.com/lv0rcPE', 'faction': 'Order'},
-    'bright_wizard': {'name': 'Bright Wizard', 'icon': 'https://imgur.com/UFgGTCe', 'faction': 'Order'},
-    'witch_hunter': {'name': 'Witch Hunter', 'icon': 'https://imgur.com/eXs9iXk', 'faction': 'Order'},
-    'ironbreaker': {'name': 'Ironbreaker', 'icon': 'https://imgur.com/aEGUPDI', 'faction': 'Order'},
-    'runepriest': {'name': 'Runepriest', 'icon': 'https://imgur.com/BWYAe6N', 'faction': 'Order'},
-    'engineer': {'name': 'Engineer', 'icon': 'https://imgur.com/fPLygxr', 'faction': 'Order'},
-    'slayer': {'name': 'Slayer', 'icon': 'https://imgur.com/FhcOzTb', 'faction': 'Order'},
-    'swordmaster': {'name': 'Swordmaster', 'icon': 'https://imgur.com/0SPd9np', 'faction': 'Order'},
-    'archmage': {'name': 'Archmage', 'icon': 'https://imgur.com/mpZh2yo', 'faction': 'Order'},
-    'shadow_warrior': {'name': 'Shadow Warrior', 'icon': 'https://imgur.com/R1CZH6g', 'faction': 'Order'},
-    'white_lion': {'name': 'White Lion', 'icon': 'https://imgur.com/TEZXP7c', 'faction': 'Order'},
+    'knight_of_the_blazing_sun': {'name': 'Knight of the Blazing Sun', 'icon': 'https://imgur.com/1TIekrQ', 'faction': 'Order', 'archtype': 'tank'},
+    'warrior_priest': {'name': 'Warrior Priest', 'icon': 'https://imgur.com/lv0rcPE', 'faction': 'Order', 'archtype': 'healer'},
+    'bright_wizard': {'name': 'Bright Wizard', 'icon': 'https://imgur.com/UFgGTCe', 'faction': 'Order', 'archtype': 'dps'},
+    'witch_hunter': {'name': 'Witch Hunter', 'icon': 'https://imgur.com/eXs9iXk', 'faction': 'Order', 'archtype': 'dps'},
+    'ironbreaker': {'name': 'Ironbreaker', 'icon': 'https://imgur.com/aEGUPDI', 'faction': 'Order', 'archtype': 'tank'},
+    'runepriest': {'name': 'Runepriest', 'icon': 'https://imgur.com/BWYAe6N', 'faction': 'Order', 'archtype': 'healer'},
+    'engineer': {'name': 'Engineer', 'icon': 'https://imgur.com/fPLygxr', 'faction': 'Order', 'archtype': 'dps'},
+    'slayer': {'name': 'Slayer', 'icon': 'https://imgur.com/FhcOzTb', 'faction': 'Order', 'archtype': 'dps'},
+    'swordmaster': {'name': 'Swordmaster', 'icon': 'https://imgur.com/0SPd9np', 'faction': 'Order', 'archtype': 'tank'},
+    'archmage': {'name': 'Archmage', 'icon': 'https://imgur.com/mpZh2yo', 'faction': 'Order', 'archtype': 'healer'},
+    'shadow_warrior': {'name': 'Shadow Warrior', 'icon': 'https://imgur.com/R1CZH6g', 'faction': 'Order', 'archtype': 'dps'},
+    'white_lion': {'name': 'White Lion', 'icon': 'https://imgur.com/TEZXP7c', 'faction': 'Order', 'archtype': 'dps'},
 
     # Destruction Faction
-    'chosen': {'name': 'Chosen', 'icon': 'https://i.imgur.com/qWCnhQ7.png', 'faction': 'Destruction'},
-    'zealot': {'name': 'Zealot', 'icon': 'https://i.imgur.com/oWA7Xzp.png', 'faction': 'Destruction'},
-    'magus': {'name': 'Magus', 'icon': 'https://i.imgur.com/yyvFCyY.png', 'faction': 'Destruction'},
-    'marauder': {'name': 'Marauder', 'icon': 'https://imgur.com/NGgyo7T', 'faction': 'Destruction'},
-    'black_orc': {'name': 'Black Orc', 'icon': 'https://imgur.com/O87YNFi', 'faction': 'Destruction'},
-    'shaman': {'name': 'Shaman', 'icon': 'https://imgur.com/gMjTisu', 'faction': 'Destruction'},
-    'squig_herder': {'name': 'Squig Herder', 'icon': 'https://imgur.com/Giraxb1', 'faction': 'Destruction'},
-    'choppa': {'name': 'Choppa', 'icon': 'https://imgur.com/OAwH25N', 'faction': 'Destruction'},
-    'black_guard': {'name': 'Black Guard', 'icon': 'https://imgur.com/2AJnVb4', 'faction': 'Destruction'},
-    'disciple_of_khaine': {'name': 'Disciple of Khaine', 'icon': 'https://imgur.com/hfh8IMa', 'faction': 'Destruction'},
-    'sorcerer': {'name': 'Sorcerer', 'icon': 'https://imgur.com/ozhl6i7', 'faction': 'Destruction'},
-    'witch_elf': {'name': 'Witch Elf', 'icon': 'https://imgur.com/R71iEFc', 'faction': 'Destruction'},
+    'chosen': {'name': 'Chosen', 'icon': 'https://i.imgur.com/qWCnhQ7.png', 'faction': 'Destruction', 'archtype': 'tank'},
+    'zealot': {'name': 'Zealot', 'icon': 'https://i.imgur.com/oWA7Xzp.png', 'faction': 'Destruction', 'archtype': 'healer'},
+    'magus': {'name': 'Magus', 'icon': 'https://i.imgur.com/yyvFCyY.png', 'faction': 'Destruction', 'archtype': 'dps'},
+    'marauder': {'name': 'Marauder', 'icon': 'https://imgur.com/NGgyo7T', 'faction': 'Destruction', 'archtype': 'dps'},
+    'black_orc': {'name': 'Black Orc', 'icon': 'https://imgur.com/O87YNFi', 'faction': 'Destruction', 'archtype': 'tank'},
+    'shaman': {'name': 'Shaman', 'icon': 'https://imgur.com/gMjTisu', 'faction': 'Destruction', 'archtype': 'healer'},
+    'squig_herder': {'name': 'Squig Herder', 'icon': 'https://imgur.com/Giraxb1', 'faction': 'Destruction', 'archtype': 'dps'},
+    'choppa': {'name': 'Choppa', 'icon': 'https://imgur.com/OAwH25N', 'faction': 'Destruction', 'archtype': 'dps'},
+    'black_guard': {'name': 'Black Guard', 'icon': 'https://imgur.com/2AJnVb4', 'faction': 'Destruction', 'archtype': 'tank'},
+    'disciple_of_khaine': {'name': 'Disciple of Khaine', 'icon': 'https://imgur.com/hfh8IMa', 'faction': 'Destruction', 'archtype': 'healer'},
+    'sorcerer': {'name': 'Sorcerer', 'icon': 'https://imgur.com/ozhl6i7', 'faction': 'Destruction', 'archtype': 'dps'},
+    'witch_elf': {'name': 'Witch Elf', 'icon': 'https://imgur.com/R71iEFc', 'faction': 'Destruction', 'archtype': 'dps'},
 }
 
 class signup_button(discord.ui.Button):
@@ -143,23 +141,26 @@ def create_event_embed(event: dict):
     embed.add_field(name="📅 When", value=f"<t:{event['time']}:F>", inline=False)
 
     # Group sign-ups by status.
-    pending_signups = [s for s in event['signups'] if s['status'] == 'Pending']
-    accepted_signups = [s for s in event['signups'] if s['status'] == 'Accepted']
-    rejected_signups = [s for s in event['signups'] if s['status'] == 'Rejected']
+    pending_signups = sorted([s for s in event['signups'] if s['status'] == 'Pending'],
+                             key=lambda s: s['career']['archtype'])
+    accepted_signups = sorted([s for s in event['signups'] if s['status'] == 'Accepted'],
+                              key=lambda s: s['career']['archtype'])
+    rejected_signups = sorted([s for s in event['signups'] if s['status'] == 'Rejected'],
+                              key=lambda s: s['career']['archtype'])
 
     # Create the fields for the embed.
     accepted_text = "\n".join([
-        f"**{s['user_name']}** ({s['career']['name']})" for s in accepted_signups
+        f"**{s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in accepted_signups
     ]) or "No one has been accepted yet."
     embed.add_field(name="✅ Accepted", value=accepted_text, inline=False)
 
     pending_text = "\n".join([
-        f"**{s['user_name']}** ({s['career']['name']})" for s in pending_signups
+        f"**{s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in pending_signups
     ]) or "No pending sign-ups."
     embed.add_field(name="⏳ Pending", value=pending_text, inline=False)
 
     rejected_text = "\n".join([
-        f"**{s['user_name']}** ({s['career']['name']})" for s in rejected_signups
+        f"**{s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in rejected_signups
     ]) or "No rejected sign-ups."
     # Only add the rejected field if there are rejected people to keep it clean.
     if rejected_signups:
@@ -175,8 +176,10 @@ async def update_event_embed(message: discord.Message, event: dict):
 
 
 class WarhammerEvents(commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot, events: dict):
         self.bot = bot
+        self.events = events
+        self.cleanup_passed_events.start()
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -192,7 +195,7 @@ class WarhammerEvents(commands.Cog):
         current_utc_timestamp = datetime.now(timezone.utc).timestamp()
 
         for message_id, event_data in self.events.items():
-            if event_data.get("timestamp", 0) < current_utc_timestamp:
+            if event_data.get("time", 0) < current_utc_timestamp:
                 events_to_remove.append(message_id)
 
         if events_to_remove:
@@ -387,7 +390,8 @@ class WarhammerEvents(commands.Cog):
 
 async def setup(bot: commands.Bot):
     """Loads the cog"""
+    events = {}
     if os.path.isfile('warhammer_events.json'):
         with open('warhammer_events.json', 'r') as file:
             events = json.load(file)
-    await bot.add_cog(WarhammerEvents(bot))
+    await bot.add_cog(WarhammerEvents(bot, events))

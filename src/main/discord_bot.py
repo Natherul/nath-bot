@@ -23,7 +23,7 @@ LOG_PERM_ERROR = "Nath-bot is enabled on your server but does not have the permi
 HTTP_ERROR = "HTTP error"
 NOW_SET_TO_ = " is now set to: "
 
-logger = logging.getLogger('discord-bot')
+logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -136,6 +136,7 @@ async def on_ready():
         # the configurations for the diff disc servers
         g = open(CONFIGURATION, 'r')
         bot.confs = json.loads(g.read().replace("'", '"'))
+        print(str(bot.confs))
         g.close()
         remake = False
         for guild in bot.confs:
@@ -557,4 +558,4 @@ def load_list(variable, file_path):
         variable.append(str(element.strip()))
 
 
-bot.run(TOKEN, log_handler=h1)
+bot.run(TOKEN)
