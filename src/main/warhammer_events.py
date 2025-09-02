@@ -1,4 +1,5 @@
 import discord
+from discord import Emoji
 from discord.ext import commands, tasks
 from discord.ui import View
 from typing import Literal
@@ -19,41 +20,42 @@ logging = logging.getLogger(__name__)
 # Grouped by faction and realm for clarity.
 CAREERS = {
     # Order Faction
-    'knight_of_the_blazing_sun': {'name': 'Knight of the Blazing Sun', 'icon': 'https://imgur.com/1TIekrQ', 'faction': 'Order', 'archtype': 'tank'},
-    'warrior_priest': {'name': 'Warrior Priest', 'icon': 'https://imgur.com/lv0rcPE', 'faction': 'Order', 'archtype': 'healer'},
-    'bright_wizard': {'name': 'Bright Wizard', 'icon': 'https://imgur.com/UFgGTCe', 'faction': 'Order', 'archtype': 'dps'},
-    'witch_hunter': {'name': 'Witch Hunter', 'icon': 'https://imgur.com/eXs9iXk', 'faction': 'Order', 'archtype': 'dps'},
-    'ironbreaker': {'name': 'Ironbreaker', 'icon': 'https://imgur.com/aEGUPDI', 'faction': 'Order', 'archtype': 'tank'},
-    'runepriest': {'name': 'Runepriest', 'icon': 'https://imgur.com/BWYAe6N', 'faction': 'Order', 'archtype': 'healer'},
-    'engineer': {'name': 'Engineer', 'icon': 'https://imgur.com/fPLygxr', 'faction': 'Order', 'archtype': 'dps'},
-    'slayer': {'name': 'Slayer', 'icon': 'https://imgur.com/FhcOzTb', 'faction': 'Order', 'archtype': 'dps'},
-    'swordmaster': {'name': 'Swordmaster', 'icon': 'https://imgur.com/0SPd9np', 'faction': 'Order', 'archtype': 'tank'},
-    'archmage': {'name': 'Archmage', 'icon': 'https://imgur.com/mpZh2yo', 'faction': 'Order', 'archtype': 'healer'},
-    'shadow_warrior': {'name': 'Shadow Warrior', 'icon': 'https://imgur.com/R1CZH6g', 'faction': 'Order', 'archtype': 'dps'},
-    'white_lion': {'name': 'White Lion', 'icon': 'https://imgur.com/TEZXP7c', 'faction': 'Order', 'archtype': 'dps'},
+    'knight_of_the_blazing_sun': {'name': 'Knight of the Blazing Sun', 'icon': 'kotbs', 'faction': 'Order', 'archtype': 'tank'},
+    'warrior_priest': {'name': 'Warrior Priest', 'icon': 'wp', 'faction': 'Order', 'archtype': 'healer'},
+    'bright_wizard': {'name': 'Bright Wizard', 'icon': 'bw', 'faction': 'Order', 'archtype': 'dps'},
+    'witch_hunter': {'name': 'Witch Hunter', 'icon': 'wh', 'faction': 'Order', 'archtype': 'dps'},
+    'ironbreaker': {'name': 'Ironbreaker', 'icon': 'ib', 'faction': 'Order', 'archtype': 'tank'},
+    'runepriest': {'name': 'Runepriest', 'icon': 'rp', 'faction': 'Order', 'archtype': 'healer'},
+    'engineer': {'name': 'Engineer', 'icon': 'eng', 'faction': 'Order', 'archtype': 'dps'},
+    'slayer': {'name': 'Slayer', 'icon': 'slayer', 'faction': 'Order', 'archtype': 'dps'},
+    'swordmaster': {'name': 'Swordmaster', 'icon': 'sm', 'faction': 'Order', 'archtype': 'tank'},
+    'archmage': {'name': 'Archmage', 'icon': 'am', 'faction': 'Order', 'archtype': 'healer'},
+    'shadow_warrior': {'name': 'Shadow Warrior', 'icon': 'sw', 'faction': 'Order', 'archtype': 'dps'},
+    'white_lion': {'name': 'White Lion', 'icon': 'wl', 'faction': 'Order', 'archtype': 'dps'},
 
     # Destruction Faction
-    'chosen': {'name': 'Chosen', 'icon': 'https://i.imgur.com/qWCnhQ7.png', 'faction': 'Destruction', 'archtype': 'tank'},
-    'zealot': {'name': 'Zealot', 'icon': 'https://i.imgur.com/oWA7Xzp.png', 'faction': 'Destruction', 'archtype': 'healer'},
-    'magus': {'name': 'Magus', 'icon': 'https://i.imgur.com/yyvFCyY.png', 'faction': 'Destruction', 'archtype': 'dps'},
-    'marauder': {'name': 'Marauder', 'icon': 'https://imgur.com/NGgyo7T', 'faction': 'Destruction', 'archtype': 'dps'},
-    'black_orc': {'name': 'Black Orc', 'icon': 'https://imgur.com/O87YNFi', 'faction': 'Destruction', 'archtype': 'tank'},
-    'shaman': {'name': 'Shaman', 'icon': 'https://imgur.com/gMjTisu', 'faction': 'Destruction', 'archtype': 'healer'},
-    'squig_herder': {'name': 'Squig Herder', 'icon': 'https://imgur.com/Giraxb1', 'faction': 'Destruction', 'archtype': 'dps'},
-    'choppa': {'name': 'Choppa', 'icon': 'https://imgur.com/OAwH25N', 'faction': 'Destruction', 'archtype': 'dps'},
-    'black_guard': {'name': 'Black Guard', 'icon': 'https://imgur.com/2AJnVb4', 'faction': 'Destruction', 'archtype': 'tank'},
-    'disciple_of_khaine': {'name': 'Disciple of Khaine', 'icon': 'https://imgur.com/hfh8IMa', 'faction': 'Destruction', 'archtype': 'healer'},
-    'sorcerer': {'name': 'Sorcerer', 'icon': 'https://imgur.com/ozhl6i7', 'faction': 'Destruction', 'archtype': 'dps'},
-    'witch_elf': {'name': 'Witch Elf', 'icon': 'https://imgur.com/R71iEFc', 'faction': 'Destruction', 'archtype': 'dps'},
+    'chosen': {'name': 'Chosen', 'icon': 'chosen', 'faction': 'Destruction', 'archtype': 'tank'},
+    'zealot': {'name': 'Zealot', 'icon': 'zeal', 'faction': 'Destruction', 'archtype': 'healer'},
+    'magus': {'name': 'Magus', 'icon': 'magus', 'faction': 'Destruction', 'archtype': 'dps'},
+    'marauder': {'name': 'Marauder', 'icon': 'mara', 'faction': 'Destruction', 'archtype': 'dps'},
+    'black_orc': {'name': 'Black Orc', 'icon': 'bo', 'faction': 'Destruction', 'archtype': 'tank'},
+    'shaman': {'name': 'Shaman', 'icon': 'shaman', 'faction': 'Destruction', 'archtype': 'healer'},
+    'squig_herder': {'name': 'Squig Herder', 'icon': 'sh', 'faction': 'Destruction', 'archtype': 'dps'},
+    'choppa': {'name': 'Choppa', 'icon': 'choppa', 'faction': 'Destruction', 'archtype': 'dps'},
+    'black_guard': {'name': 'Black Guard', 'icon': 'bg', 'faction': 'Destruction', 'archtype': 'tank'},
+    'disciple_of_khaine': {'name': 'Disciple of Khaine', 'icon': 'dok', 'faction': 'Destruction', 'archtype': 'healer'},
+    'sorcerer': {'name': 'Sorcerer', 'icon': 'sorc', 'faction': 'Destruction', 'archtype': 'dps'},
+    'witch_elf': {'name': 'Witch Elf', 'icon': 'we', 'faction': 'Destruction', 'archtype': 'dps'},
 }
 
 class signup_button(discord.ui.Button):
-    def __init__(self, label: str, id: str):
+    def __init__(self, label: str, id: str, emoji: Emoji):
         super().__init__(
             label=label,
             style=discord.ButtonStyle.secondary,
             custom_id=id,
-            disabled=False
+            disabled=False,
+            emoji=emoji
         )
 
 
@@ -95,7 +97,8 @@ class signup_button(discord.ui.Button):
                 'user_id': user.id,
                 'user_name': user.display_name,
                 'career': CAREERS[career_id],
-                'status': 'Pending'
+                'status': 'Pending',
+                'icon': CAREERS[career_id]['icon']
             })
 
         # Update the event message with the new sign-up list.
@@ -116,7 +119,7 @@ class signup_button(discord.ui.Button):
 
 # A subclass of View that will hold our sign-up buttons.
 class EventView(View):
-    def __init__(self, organizer_id: int, events_dict: dict, faction: str):
+    def __init__(self, organizer_id: int, events_dict: dict, faction: str, guild: discord.Guild):
         super().__init__(timeout=None)
         self.organizer_id = organizer_id
         self.events_dict = events_dict # Store the events dictionary
@@ -125,11 +128,17 @@ class EventView(View):
         for career_id, data in CAREERS.items():
             if data['faction'] != faction:
                 continue
-            self.add_item(signup_button(data['name'], career_id))
+            custom_emoji = discord.utils.get(guild.emojis, name=data['icon'])
+            self.add_item(signup_button(data['name'], career_id, custom_emoji))
+
+
+def get_career_emoji(guild: discord.Guild, icon: str):
+    """Helper method to get an emoji"""
+    return discord.utils.get(guild.emojis, name=icon)
 
 
 # Helper function to create/update the embed.
-def create_event_embed(event: dict):
+def create_event_embed(event: dict, guild: discord.Guild):
     """create an embed for an event"""
     embed = discord.Embed(
         title=event['title'],
@@ -150,17 +159,17 @@ def create_event_embed(event: dict):
 
     # Create the fields for the embed.
     accepted_text = "\n".join([
-        f"**{s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in accepted_signups
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in accepted_signups
     ]) or "No one has been accepted yet."
     embed.add_field(name="✅ Accepted", value=accepted_text, inline=False)
 
     pending_text = "\n".join([
-        f"**{s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in pending_signups
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in pending_signups
     ]) or "No pending sign-ups."
     embed.add_field(name="⏳ Pending", value=pending_text, inline=False)
 
     rejected_text = "\n".join([
-        f"**{s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in rejected_signups
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in rejected_signups
     ]) or "No rejected sign-ups."
     # Only add the rejected field if there are rejected people to keep it clean.
     if rejected_signups:
@@ -171,8 +180,8 @@ def create_event_embed(event: dict):
 # Helper function to update an existing event message.
 async def update_event_embed(message: discord.Message, event: dict):
     """Method to update an existing embed"""
-    embed = create_event_embed(event)
-    await message.edit(embed=embed, view=EventView(event['organizer_id'], events, event['faction']))
+    embed = create_event_embed(event, message.guild)
+    await message.edit(embed=embed, view=EventView(event['organizer_id'], events, event['faction'], message.guild))
 
 
 class WarhammerEvents(commands.Cog):
@@ -294,10 +303,10 @@ class WarhammerEvents(commands.Cog):
         }
 
         # Create the initial embed and view.
-        embed = create_event_embed(event_data)
+        embed = create_event_embed(event_data, interaction.guild)
         
         # Pass the global `events` dictionary to the view.
-        view = EventView(organizer.id, events, faction)
+        view = EventView(organizer.id, events, faction, interaction.guild)
         views.append(view) # save pointer
 
         # Defer the response first to avoid the 3-second timeout.
