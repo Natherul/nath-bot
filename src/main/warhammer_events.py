@@ -20,32 +20,32 @@ logging = logging.getLogger(__name__)
 # Grouped by faction and realm for clarity.
 CAREERS = {
     # Order Faction
-    'knight_of_the_blazing_sun': {'name': 'Knight of the Blazing Sun', 'icon': 'kotbs', 'faction': 'Order', 'archtype': 'Tank'},
-    'warrior_priest': {'name': 'Warrior Priest', 'icon': 'wp', 'faction': 'Order', 'archtype': 'Healer'},
-    'bright_wizard': {'name': 'Bright Wizard', 'icon': 'bw', 'faction': 'Order', 'archtype': 'DPS'},
-    'witch_hunter': {'name': 'Witch Hunter', 'icon': 'wh', 'faction': 'Order', 'archtype': 'DPS'},
-    'ironbreaker': {'name': 'Ironbreaker', 'icon': 'ib', 'faction': 'Order', 'archtype': 'Tank'},
-    'runepriest': {'name': 'Runepriest', 'icon': 'rp', 'faction': 'Order', 'archtype': 'Healer'},
-    'engineer': {'name': 'Engineer', 'icon': 'eng', 'faction': 'Order', 'archtype': 'DPS'},
-    'slayer': {'name': 'Slayer', 'icon': 'slayer', 'faction': 'Order', 'archtype': 'DPS'},
-    'swordmaster': {'name': 'Swordmaster', 'icon': 'sm', 'faction': 'Order', 'archtype': 'Tank'},
-    'archmage': {'name': 'Archmage', 'icon': 'am', 'faction': 'Order', 'archtype': 'Healer'},
-    'shadow_warrior': {'name': 'Shadow Warrior', 'icon': 'sw', 'faction': 'Order', 'archtype': 'DPS'},
-    'white_lion': {'name': 'White Lion', 'icon': 'wl', 'faction': 'Order', 'archtype': 'DPS'},
+    'knight_of_the_blazing_sun': {'name': 'Knight of the Blazing Sun', 'icon': 'kotbs', 'faction': 'Order', 'archtype': 'Tank', 'race': 'human'},
+    'warrior_priest': {'name': 'Warrior Priest', 'icon': 'wp', 'faction': 'Order', 'archtype': 'Healer', 'race': 'human'},
+    'bright_wizard': {'name': 'Bright Wizard', 'icon': 'bw', 'faction': 'Order', 'archtype': 'DPS', 'race': 'human'},
+    'witch_hunter': {'name': 'Witch Hunter', 'icon': 'wh', 'faction': 'Order', 'archtype': 'DPS', 'race': 'human'},
+    'ironbreaker': {'name': 'Ironbreaker', 'icon': 'ib', 'faction': 'Order', 'archtype': 'Tank', 'race': 'dwarf'},
+    'runepriest': {'name': 'Runepriest', 'icon': 'rp', 'faction': 'Order', 'archtype': 'Healer', 'race': 'dwarf'},
+    'engineer': {'name': 'Engineer', 'icon': 'eng', 'faction': 'Order', 'archtype': 'DPS', 'race': 'dwarf'},
+    'slayer': {'name': 'Slayer', 'icon': 'slayer', 'faction': 'Order', 'archtype': 'DPS', 'race': 'dwarf'},
+    'swordmaster': {'name': 'Swordmaster', 'icon': 'sm', 'faction': 'Order', 'archtype': 'Tank', 'race': 'high-elf'},
+    'archmage': {'name': 'Archmage', 'icon': 'am', 'faction': 'Order', 'archtype': 'Healer', 'race': 'high-elf'},
+    'shadow_warrior': {'name': 'Shadow Warrior', 'icon': 'sw', 'faction': 'Order', 'archtype': 'DPS', 'race': 'high-elf'},
+    'white_lion': {'name': 'White Lion', 'icon': 'wl', 'faction': 'Order', 'archtype': 'DPS', 'race': 'high-elf'},
 
     # Destruction Faction
-    'chosen': {'name': 'Chosen', 'icon': 'chosen', 'faction': 'Destruction', 'archtype': 'Tank'},
-    'zealot': {'name': 'Zealot', 'icon': 'zeal', 'faction': 'Destruction', 'archtype': 'Healer'},
-    'magus': {'name': 'Magus', 'icon': 'magus', 'faction': 'Destruction', 'archtype': 'DPS'},
-    'marauder': {'name': 'Marauder', 'icon': 'mara', 'faction': 'Destruction', 'archtype': 'DPS'},
-    'black_orc': {'name': 'Black Orc', 'icon': 'bo', 'faction': 'Destruction', 'archtype': 'Tank'},
-    'shaman': {'name': 'Shaman', 'icon': 'shaman', 'faction': 'Destruction', 'archtype': 'Healer'},
-    'squig_herder': {'name': 'Squig Herder', 'icon': 'sh', 'faction': 'Destruction', 'archtype': 'DPS'},
-    'choppa': {'name': 'Choppa', 'icon': 'choppa', 'faction': 'Destruction', 'archtype': 'DPS'},
-    'black_guard': {'name': 'Black Guard', 'icon': 'bg', 'faction': 'Destruction', 'archtype': 'Tank'},
-    'disciple_of_khaine': {'name': 'Disciple of Khaine', 'icon': 'dok', 'faction': 'Destruction', 'archtype': 'Healer'},
-    'sorcerer': {'name': 'Sorcerer', 'icon': 'sorc', 'faction': 'Destruction', 'archtype': 'DPS'},
-    'witch_elf': {'name': 'Witch Elf', 'icon': 'we', 'faction': 'Destruction', 'archtype': 'DPS'},
+    'chosen': {'name': 'Chosen', 'icon': 'chosen', 'faction': 'Destruction', 'archtype': 'Tank', 'race': 'chaos'},
+    'zealot': {'name': 'Zealot', 'icon': 'zeal', 'faction': 'Destruction', 'archtype': 'Healer', 'race': 'chaos'},
+    'magus': {'name': 'Magus', 'icon': 'magus', 'faction': 'Destruction', 'archtype': 'DPS', 'race': 'chaos'},
+    'marauder': {'name': 'Marauder', 'icon': 'mara', 'faction': 'Destruction', 'archtype': 'DPS', 'race': 'chaos'},
+    'black_orc': {'name': 'Black Orc', 'icon': 'bo', 'faction': 'Destruction', 'archtype': 'Tank', 'race': 'greenskin'},
+    'shaman': {'name': 'Shaman', 'icon': 'shaman', 'faction': 'Destruction', 'archtype': 'Healer', 'race': 'greenskin'},
+    'squig_herder': {'name': 'Squig Herder', 'icon': 'sh', 'faction': 'Destruction', 'archtype': 'DPS', 'race': 'greenskin'},
+    'choppa': {'name': 'Choppa', 'icon': 'choppa', 'faction': 'Destruction', 'archtype': 'DPS', 'race': 'greenskin'},
+    'black_guard': {'name': 'Black Guard', 'icon': 'bg', 'faction': 'Destruction', 'archtype': 'Tank', 'race': 'dark-elf'},
+    'disciple_of_khaine': {'name': 'Disciple of Khaine', 'icon': 'dok', 'faction': 'Destruction', 'archtype': 'Healer', 'race': 'dark-elf'},
+    'sorcerer': {'name': 'Sorcerer', 'icon': 'sorc', 'faction': 'Destruction', 'archtype': 'DPS', 'race': 'dark-elf'},
+    'witch_elf': {'name': 'Witch Elf', 'icon': 'we', 'faction': 'Destruction', 'archtype': 'DPS', 'race': 'dark-elf'},
 }
 
 class signup_button(discord.ui.Button):
@@ -55,7 +55,8 @@ class signup_button(discord.ui.Button):
             style=discord.ButtonStyle.secondary,
             custom_id=id,
             disabled=False,
-            emoji=emoji
+            emoji=emoji,
+            row=0 if CAREERS[id]['race'] in ["human", "chaos"] else 1 if CAREERS[id]['race'] in ["dwarf", "greenskin"] else 2
         )
 
 
