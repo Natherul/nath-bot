@@ -5,6 +5,8 @@ from discord.ui import Button, View
 from typing import Literal
 import json
 import os
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 # A simple in-memory dictionary to store event data.
@@ -136,6 +138,7 @@ def create_event_embed(event: dict):
     )
     embed.set_author(name=f"Event by {event['organizer_name']}", icon_url=event['organizer_avatar'])
     embed.set_footer(text="Click a button below to sign up!")
+    embed.add_field(name="📅 When", value=f"<t:{event['time']}:F>", inline=False)
 
     # Group sign-ups by status.
     pending_signups = [s for s in event['signups'] if s['status'] == 'Pending']
@@ -205,16 +208,45 @@ class WarhammerEvents(commands.Cog):
 
 
     @discord.app_commands.command(name="create_ror_event", description="Create a new Warhammer Online event.")
+    @discord.app_commands.describe(title="The name of the event", description="Description for the event", faction="What faction the event is for", date="Date for the event (YYYY-MM-DD)", time="Time of event (HH:MM)", timezone="Your timezone (I.E. 'Europe/Stockholm')")
     async def create_event(
         self,
         interaction: discord.Interaction,
         title: str,
         description: str,
-        faction: Literal['Destruction', 'Order']
+        faction: Literal['Destruction', 'Order'],
+        date: str,
+        time: str,
+        timezone: str
     ):
         """
         Creates a new Warhammer Online event with an interactive sign-up embed.
         """
+        try:
+            # 1. Combine date and time strings from user input
+            naive_datetime_str = f"{date} {time}"
+
+            # 2. Create a "naive" datetime object (no timezone info yet)
+            naive_dt = datetime.strptime(naive_datetime_str, "%Y-%m-%d %H:%M")
+
+            # 3. Find the user's timezone and make the datetime "aware"
+            user_tz = ZoneInfo(timezone)
+            aware_dt = naive_dt.astimezone(user_tz)
+
+            # 4. Get the Unix timestamp (seconds since 1970-01-01), which is what Discord needs
+            timestamp = int(aware_dt.timestamp())
+
+        except (ValueError, ZoneInfoNotFoundError) as e:
+            # Handle errors if the user provides a bad date, time, or timezone
+            error_message = ""
+            if isinstance(e, ValueError):
+                error_message = "❌ **Invalid Format!** Please use `YYYY-MM-DD` for the date and `HH:MM` for the time."
+            elif isinstance(e, ZoneInfoNotFoundError):
+                error_message = f"❌ **Invalid Timezone!** I couldn't find the timezone `{timezone}`. Please use a valid TZ identifier like 'Europe/London' or 'America/Los_Angeles'."
+
+            await interaction.response.send_message(error_message, ephemeral=True)
+            return
+
         organizer = interaction.user
 
         # Create the initial event data structure.
@@ -225,7 +257,8 @@ class WarhammerEvents(commands.Cog):
             'organizer_name': organizer.display_name,
             'organizer_avatar': organizer.display_avatar.url,
             'signups': [],
-            'faction': faction
+            'faction': faction,
+            'time': timestamp
         }
 
         # Create the initial embed and view.
