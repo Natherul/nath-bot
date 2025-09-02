@@ -28,7 +28,7 @@ def make_embed(title, description, colour, thumbnail, fields):
 def save_conf(self):
     """Help method to update the saved configuration of a server"""
     g = open(CONFIGURATION, 'w')
-    g.write(str(self.bot.confs))
+    g.write(str(self.config))
     g.close()
 
 def is_mod(roles, guild_conf):
@@ -57,7 +57,7 @@ logging = logging.getLogger(__name__)
 class Moderation(commands.Cog):
     def __init__(self, bot: commands.Bot, conf: dict):
         self.bot = bot
-        self.bot.confs = conf
+        self.config = conf
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -78,7 +78,7 @@ class Moderation(commands.Cog):
         :param interaction: The interaction that triggered the command
         :param type: The type to add
         :param args: Optional (may not be optional depending on type) parameters for the add"""
-        this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+        this_guild = self.config.get(str(interaction.guild.id), {})
         if "FortPing" == type:
             if this_guild.get('fortPing') != '0':
                 try:
@@ -116,7 +116,7 @@ class Moderation(commands.Cog):
                     current_temp_channels = this_guild.get('tempChannels', [])
                     current_temp_channels.append(channel.id)
                     this_guild['tempChannels'] = current_temp_channels
-                    self.bot.confs[str(interaction.guild.id)] = this_guild
+                    self.config[str(interaction.guild.id)] = this_guild
                     save_conf(self)
                     await interaction.guild.get_member(interaction.user.id).move_to(channel)
                     await interaction.response.send_message("Temporary channel created and user moved to channel.")
@@ -136,7 +136,7 @@ class Moderation(commands.Cog):
         :param interaction: The interaction that triggered this command
         :param type: The type to remove
         :param args: Optional (may not be optional depending on type) identifier for the removal"""
-        this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+        this_guild = self.config.get(str(interaction.guild.id), {})
         if "FortPing" == type:
             if this_guild.get('fortPing') != '0':
                 try:
@@ -178,8 +178,8 @@ class Moderation(commands.Cog):
 #        :param interaction: The interaction that triggered this command
 #        :param message: The message to announce"""
 #        if interaction.user.id == 173443339025121280:
-#            for guild in self.bot.confs:
-#                this_guild = self.bot.confs[guild]
+#            for guild in self.config:
+#                this_guild = self.config[guild]
 #                if this_guild.get('enabled') == '1' and this_guild.get('announceChannel') != '0':
 #                    try:
 #                        self.bot.lastAnnounceMessage[guild] = await self.bot.get_channel(int(this_guild['announceChannel'])).send(
@@ -188,7 +188,7 @@ class Moderation(commands.Cog):
 #                    except (discord.Forbidden, ValueError, TypeError):
 #                        self.logger.warning("Announcement channel wrong in: " + str(this_guild) + " removing the announce channel from it")
 #                        this_guild['announceChannel'] = "0"
-#                        self.bot.confs[str(interaction.guild.id)] = this_guild
+#                        self.config[str(interaction.guild.id)] = this_guild
 #                        save_conf()
 #                    except discord.HTTPException:
 #                        self.logger.error(HTTP_ERROR)
@@ -205,9 +205,9 @@ class Moderation(commands.Cog):
         :param option: The option to change
         :param args: Optional (may not be optional based on option) identifier"""
         if interaction.user.id == interaction.guild.owner.id or interaction.user.id == 173443339025121280:
-            if str(interaction.guild.id) not in self.bot.confs.keys():
+            if str(interaction.guild.id) not in self.config.keys():
                 this_guild = self.bot.allconf
-                self.bot.confs[str(interaction.guild.id)] = this_guild
+                self.config[str(interaction.guild.id)] = this_guild
                 save_conf(self)
                 await interaction.response.send_message("The guild was missing from the internal database and it has been added with no values, please configure the bot with all info it needs. (The command you entered was not saved)")
             elif option == "help" or args is None:
@@ -217,9 +217,9 @@ class Moderation(commands.Cog):
                 tmp_channels = tmp_guild.text_channels
                 for channel in tmp_channels:
                     if args == str(channel.id) or args == channel.name:
-                        this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+                        this_guild = self.config.get(str(interaction.guild.id), {})
                         this_guild[option] = args
-                        self.bot.confs[str(interaction.guild.id)] = this_guild
+                        self.config[str(interaction.guild.id)] = this_guild
                         await interaction.response.send_message(option + NOW_SET_TO_ + args)
                         save_conf(self)
                         return
@@ -229,9 +229,9 @@ class Moderation(commands.Cog):
                 tmp_roles = tmp_guild.roles
                 for role in tmp_roles:
                     if args == str(role.id) or args == role.name:
-                        this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+                        this_guild = self.config.get(str(interaction.guild.id), {})
                         this_guild[option] = args
-                        self.bot.confs[str(interaction.guild.id)] = this_guild
+                        self.config[str(interaction.guild.id)] = this_guild
                         await interaction.response.send_message(option + NOW_SET_TO_ + args)
                         save_conf(self)
                         return
@@ -240,22 +240,22 @@ class Moderation(commands.Cog):
                 if args != "1" and args != "0":
                     await interaction.response.send_message("For this setting you can only specify it being on (1) or off (0)")
                 else:
-                    this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+                    this_guild = self.config.get(str(interaction.guild.id), {})
                     this_guild[option] = args
-                    self.bot.confs[str(interaction.guild.id)] = this_guild
+                    self.config[str(interaction.guild.id)] = this_guild
                     await interaction.response.send_message(option + NOW_SET_TO_ + args)
                     save_conf(self)
             elif option in ('ignoreLogChannels'):
                 channels = args.split(',')
-                this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+                this_guild = self.config.get(str(interaction.guild.id), {})
                 this_guild[option] = channels
-                self.bot.confs[str(interaction.guild.id)] = this_guild
+                self.config[str(interaction.guild.id)] = this_guild
                 await interaction.response.send_message(option + NOW_SET_TO_ + args)
                 save_conf(self)
             else:
-                this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+                this_guild = self.config.get(str(interaction.guild.id), {})
                 this_guild[option] = args
-                self.bot.confs[str(interaction.guild.id)] = this_guild
+                self.config[str(interaction.guild.id)] = this_guild
                 await interaction.response.send_message(option + NOW_SET_TO_ + args)
                 save_conf(self)
         else:
@@ -274,7 +274,7 @@ class Moderation(commands.Cog):
             if member.id == self.bot.user.id:
                 await interaction.response.send_message("You cannot kick the bot")
                 return
-            this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+            this_guild = self.config.get(str(interaction.guild.id), {})
             if not is_mod(interaction.user.roles, this_guild):
                 await interaction.response.send_message(NOT_MOD_STRING)
                 return
@@ -305,7 +305,7 @@ class Moderation(commands.Cog):
             if member.id == self.bot.user.id:
                 await interaction.response.send_message("You cannot ban the bot")
                 return
-            this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+            this_guild = self.config.get(str(interaction.guild.id), {})
             if not is_mod(interaction.user.roles, this_guild):
                 await interaction.response.send_message(NOT_MOD_STRING)
                 return
@@ -332,7 +332,7 @@ class Moderation(commands.Cog):
         :param interaction: The interaction which triggered this command
         :param number: The number of messages to remove from the channel in the context
         :param reason: The reason for the purge (will be logged)"""
-        this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+        this_guild = self.config.get(str(interaction.guild.id), {})
         if not is_mod(interaction.user.roles, this_guild):
             await interaction.response.send_message(NOT_MOD_STRING)
             return
@@ -372,7 +372,7 @@ class Moderation(commands.Cog):
     async def debug(self, interaction: discord.Interaction):
         """Command to print all saved config of a guild
         :param interaction: The interaction of the trigger of command"""
-        this_guild = self.bot.confs.get(str(interaction.guild.id), {})
+        this_guild = self.config.get(str(interaction.guild.id), {})
         await interaction.response.send_message(embed=make_embed("These are the current settings for this server", "", 0xd8de0c,
                                                         QUESTION_ICON,
                                                         this_guild))
@@ -394,5 +394,5 @@ class Moderation(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    config_data = getattr(bot, 'config_data', {})
+    config_data = getattr(bot, 'confs', {})
     await bot.add_cog(Moderation(bot, config_data))
