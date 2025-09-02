@@ -80,15 +80,15 @@ class signup_button(discord.ui.Button):
         found = False
         removed = False
         for signup in event['signups']:
-            if signup['user'].id == user.id:
+            if signup['user_id'] == user.id:
                 found = True
                 if signup['career'] == CAREERS[career_id]:
-                    event['signups'] = [signup for signup in event['signups'] if signup['user'] != user]
+                    event['signups'] = [signup for signup in event['signups'] if signup['user_id'] != user.id]
                     removed = True
                     break
                 else:
                     for signup in event['signups']:
-                        if signup['user'] == user:
+                        if signup['user_id'] == user.id:
                             signup['career'] = CAREERS[career_id]
                             break
 
