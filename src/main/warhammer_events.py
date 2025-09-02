@@ -1,18 +1,21 @@
 import discord
-from discord.ext import commands
-from discord.message import Message
-from discord.ui import Button, View
+from discord.ext import commands, tasks
+from discord.ui import View
 from typing import Literal
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+import logging
 
 
 # A simple in-memory dictionary to store event data.
 # For a production bot, you would want to use a database like MongoDB or SQLite.
 events = {}
 views = []
+
+# Get a logger for this specific module
+logging = logging.getLogger(__name__)
 
 # Dictionary mapping careers to their full name and a suitable icon URL.
 # Grouped by faction and realm for clarity.
@@ -63,7 +66,6 @@ class signup_button(discord.ui.Button):
         event_id = interaction.message.id
         # Access the events dictionary via the instance attribute
         if event_id not in events:
-            print("SAD")
             await interaction.response.send_message(
                 "This event no longer exists.", ephemeral=True
             )
@@ -178,7 +180,34 @@ class WarhammerEvents(commands.Cog):
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print(f'Cog {self.qualified_name} is ready.')
+        logging.info(f'Cog {self.qualified_name} is ready.')
+
+
+    @tasks.loop(minutes=5)
+    async def cleanup_passed_events(self):
+        """Checks every 5 minutes for events that have passed and removes them."""
+        # It's important to not modify a dictionary while iterating over it.
+        # So, we'll first find which events to remove and then remove them.
+        events_to_remove = []
+        current_utc_timestamp = datetime.now(timezone.utc).timestamp()
+
+        for message_id, event_data in self.events.items():
+            if event_data.get("timestamp", 0) < current_utc_timestamp:
+                events_to_remove.append(message_id)
+
+        if events_to_remove:
+            for message_id in events_to_remove:
+                logging.info(f'Removing event {message_id}')
+                del self.events[message_id]
+
+            # Save the updated events list to the JSON file
+            with open('warhammer_events.json', 'w') as f:
+                json.dump(self.events, f, indent=4)
+
+    @cleanup_passed_events.before_loop
+    async def before_cleanup(self):
+        """Waits until the bot is ready before starting the loop."""
+        await self.bot.wait_until_ready()
 
 
     @discord.app_commands.command(name="cancel_ror_event", description="Cancel an event")
