@@ -5,7 +5,7 @@ from discord.ui import View
 from typing import Literal
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import logging
 
@@ -190,6 +190,7 @@ class WarhammerEvents(commands.Cog):
         self.bot = bot
         self.events = events
         self.cleanup_passed_events.start()
+        self.alert_event.start()
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -223,6 +224,38 @@ class WarhammerEvents(commands.Cog):
         await self.bot.wait_until_ready()
 
 
+    @tasks.loop(minutes=10)
+    async def alert_event(self):
+        """Task to alert accepted people that an event is about to start"""
+        current_utc_timestamp = datetime.now(timezone.utc)
+        future_30_minutes_timestamp = (current_utc_timestamp + timedelta(minutes=30)).timestamp()
+
+        for event in events.values():
+            if not event['has_announced'] and current_utc_timestamp.timestamp() <= event['time'] <= future_30_minutes_timestamp:
+                accepted_users = [s['user_id'] for s in event['signups'] if s['status'] == 'Accepted']
+
+                if not accepted_users:
+                    continue
+
+                formatted_mentions = " ".join([f"<@{user_id}>" for user_id in accepted_users])
+                guild = self.bot.get_guild(event['guild'])
+                if not guild:
+                    continue  # Make sure the guild exists
+
+                channel = guild.get_channel(event['channel'])
+                if not channel:
+                    continue  # Make sure the channel exists
+
+                await channel.send(f"{formatted_mentions} The event {event['title']} is starting in less than 30 minutes!")
+                event['has_announced'] = True
+
+
+    @alert_event.before_loop
+    async def before_alert(self):
+        """waits until bot is read before starting the loop"""
+        await self.bot.wait_until_ready()
+
+
     @discord.app_commands.command(name="cancel_ror_event", description="Cancel an event")
     async def remove_event_cancellation(self, interaction: discord.Interaction, message_id: str):
         """Cancel an event"""
@@ -243,10 +276,11 @@ class WarhammerEvents(commands.Cog):
 
         await interaction.response.defer()
         await (await interaction.channel.fetch_message(message_id)).delete()
+        title = event['title']
         events.pop(message_id)
         with open('warhammer_events.json', 'w') as f:
             json.dump(events, f, indent=4)
-        await interaction.followup.send("Event cancelled", ephemeral=True)
+        await interaction.followup.send(f"Event cancelled: {title}", ephemeral=True)
 
 
     @discord.app_commands.command(name="create_ror_event", description="Create a new Warhammer Online event.")
@@ -300,7 +334,10 @@ class WarhammerEvents(commands.Cog):
             'organizer_avatar': organizer.display_avatar.url,
             'signups': [],
             'faction': faction,
-            'time': timestamp
+            'time': timestamp,
+            'guild': interaction.guild.id,
+            'channel': interaction.channel.id,
+            'has_announced': False
         }
 
         # Create the initial embed and view.
