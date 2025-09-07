@@ -171,29 +171,30 @@ class Moderation(commands.Cog):
             await interaction.response.send_message("No such remove option")
 
 
-#    @app_commands.command(name="announce", description="Announce things through all servers the bot is present on")
-#    @app_commands.describe(message="What to announce")
-#    async def announce(self, interaction: discord.Interaction, message: str):
-#        """Announce command, this is only used by Nath to send info to all servers the bot is present on
-#        :param interaction: The interaction that triggered this command
-#        :param message: The message to announce"""
-#        if interaction.user.id == 173443339025121280:
-#            for guild in self.config:
-#                this_guild = self.config[guild]
-#                if this_guild.get('enabled') == '1' and this_guild.get('announceChannel') != '0':
-#                    try:
-#                        self.bot.lastAnnounceMessage[guild] = await self.bot.get_channel(int(this_guild['announceChannel'])).send(
-#                            embed=make_embed("Announcement from Natherul", message, 0x00ff00, ANNOUNCE_ICON,
-#                                             {}))
-#                    except (discord.Forbidden, ValueError, TypeError):
-#                        self.logger.warning("Announcement channel wrong in: " + str(this_guild) + " removing the announce channel from it")
-#                        this_guild['announceChannel'] = "0"
-#                        self.config[str(interaction.guild.id)] = this_guild
-#                        save_conf()
-#                    except discord.HTTPException:
-#                        self.logger.error(HTTP_ERROR)
-#        else:
-#            await interaction.response.send_message("This command is locked to only be useable by Natherul")
+    @app_commands.command(name="announce", description="Announce things through all servers the bot is present on")
+    @app_commands.describe(message="What to announce")
+    @app_commands.guilds(discord.Object(id=173443661713899521))
+    async def announce(self, interaction: discord.Interaction, message: str):
+        """Announce command, this is only used by Nath to send info to all servers the bot is present on
+        :param interaction: The interaction that triggered this command
+        :param message: The message to announce"""
+        if interaction.user.id == 173443339025121280:
+            for guild in self.config:
+                this_guild = self.config[guild]
+                if this_guild.get('enabled') == '1' and this_guild.get('announceChannel') != '0':
+                    try:
+                        self.bot.lastAnnounceMessage[guild] = await self.bot.get_channel(int(this_guild['announceChannel'])).send(
+                            embed=make_embed("Announcement from Natherul", message, 0x00ff00, ANNOUNCE_ICON,
+                                             {}))
+                    except (discord.Forbidden, ValueError, TypeError):
+                        self.logger.warning("Announcement channel wrong in: " + str(this_guild) + " removing the announce channel from it")
+                        this_guild['announceChannel'] = "0"
+                        self.config[str(interaction.guild.id)] = this_guild
+                        save_conf()
+                    except discord.HTTPException:
+                        self.logger.error(HTTP_ERROR)
+        else:
+            await interaction.response.send_message("This command is locked to only be useable by Natherul")
 
 
     @app_commands.command(name="configure", description="Command group to configure the bot on your server")
@@ -378,19 +379,20 @@ class Moderation(commands.Cog):
                                                         this_guild))
 
 
-#    @app_commands.command(name="editannounce", description="Edit previous announcement")
-#    @app_commands.describe(message="What to edit the message to")
-#    async def edit_announce(self, interaction: discord.Interaction, message: str):
-#        """Method to edit prior announces, only used by Nath
-#        :param interaction: The interaction that triggered this command
-#        :param message: The new message content"""
-#        if interaction.user.id == 173443339025121280:
-#            for old_message in self.bot.lastAnnounceMessage:
-#                await self.bot.lastAnnounceMessage[old_message].edit(
-#                    embed=make_embed("Announcement from Natherul", message, 0x00ff00, ANNOUNCE_ICON, {}))
-#            await interaction.response.send_message("Announcement updated")
-#        else:
-#            await interaction.response.send_message("This command is locked to only be usable by Natherul")
+    @app_commands.command(name="editannounce", description="Edit previous announcement")
+    @app_commands.describe(message="What to edit the message to")
+    @app_commands.guilds(discord.Object(id=173443661713899521))
+    async def edit_announce(self, interaction: discord.Interaction, message: str):
+        """Method to edit prior announces, only used by Nath
+        :param interaction: The interaction that triggered this command
+        :param message: The new message content"""
+        if interaction.user.id == 173443339025121280:
+            for old_message in self.bot.lastAnnounceMessage:
+                await self.bot.lastAnnounceMessage[old_message].edit(
+                    embed=make_embed("Announcement from Natherul", message, 0x00ff00, ANNOUNCE_ICON, {}))
+            await interaction.response.send_message("Announcement updated")
+        else:
+            await interaction.response.send_message("This command is locked to only be usable by Natherul")
 
 
 async def setup(bot: commands.Bot):
