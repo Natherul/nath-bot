@@ -63,7 +63,7 @@ class signup_button(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction):
         """Callback for when a button is pressed"""
         # Find the event data from our global dictionary using the message ID.
-        event_id = interaction.message.id
+        event_id = str(interaction.message.id)
         # Access the events dictionary via the instance attribute
         if event_id not in self.events:
             await interaction.response.send_message(
@@ -212,12 +212,28 @@ class WarhammerEvents(commands.Cog):
     async def update_event_embed(self, message: discord.Message, event: dict):
         """Method to update an existing embed"""
         embed = create_event_embed(event, message.guild)
-        await message.edit(embed=embed,
-                           view=EventView(event['organizer_id'], self.events, event['faction'], message.guild, self))
+        # Only edit the embed, leave the persistent view that is already on the message.
+        await message.edit(embed=embed)
+
 
     @commands.Cog.listener()
     async def on_ready(self):
         logging.info(f'Cog {self.qualified_name} is ready.')
+        for message_id, event_data in self.events.items():
+            # Get the guild object from the stored guild ID.
+            guild = self.bot.get_guild(event_data['guild'])
+            if guild:
+                # Create a new EventView instance for the loaded event.
+                view = EventView(
+                    organizer_id=event_data['organizer_id'],
+                    events_dict=self.events,
+                    faction=event_data['faction'],
+                    guild=guild,
+                    cog_instance=self
+                )
+                # Re-register the view with the bot, linking it to the original message ID.
+                # message_id must be an integer here.
+                self.bot.add_view(view, message_id=int(message_id))
 
 
     @tasks.loop(minutes=5)
@@ -286,8 +302,6 @@ class WarhammerEvents(commands.Cog):
             await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
             return
 
-        message_id = int(message_id)
-
         if message_id not in self.events:
             await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
             return
@@ -298,8 +312,10 @@ class WarhammerEvents(commands.Cog):
             return
 
         await interaction.response.defer()
-        await (await interaction.channel.fetch_message(message_id)).delete()
+        # Convert to int ONLY for the API call
+        await (await interaction.channel.fetch_message(int(message_id))).delete()
         title = event['title']
+        # Use the string key to pop from the dictionary
         self.events.pop(message_id)
         with open('warhammer_events.json', 'w') as f:
             json.dump(self.events, f, indent=4)
@@ -376,7 +392,7 @@ class WarhammerEvents(commands.Cog):
         sent_message = await interaction.followup.send(embed=embed, view=view)
         
         # Store the event data using the message ID as the key.
-        self.events[sent_message.id] = event_data
+        self.events[str(sent_message.id)] = event_data
         with open('warhammer_events.json', 'w') as file:
             json.dump(self.events, file, indent=4)
 
@@ -395,8 +411,7 @@ class WarhammerEvents(commands.Cog):
             await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
             return
 
-        message_id = message_id
-
+        # Keep message_id as a STRING for the dictionary lookup
         if message_id not in self.events:
             await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
             return
@@ -412,12 +427,13 @@ class WarhammerEvents(commands.Cog):
         for signup in event['signups']:
             if signup['user_id'] == user.id:
                 signup['status'] = 'Accepted'
-                await self.update_event_embed(await interaction.channel.fetch_message(message_id), event)
+                # Convert to an INT when fetching the message object
+                message = await interaction.channel.fetch_message(int(message_id))
+                await self.update_event_embed(message, event)
                 await interaction.response.send_message(f"Accepted {signup['user_name']}'s sign-up.", ephemeral=True)
                 return
 
         await interaction.response.send_message(f"{user.display_name} is not in the sign-up list.", ephemeral=True)
-
 
     @discord.app_commands.command(name="reject_ror_signup", description="Reject a sign-up for an event.")
     async def reject_signup(
@@ -433,8 +449,7 @@ class WarhammerEvents(commands.Cog):
             await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
             return
 
-        message_id = int(message_id)
-
+        # Keep message_id as a STRING for the dictionary lookup
         if message_id not in self.events:
             await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
             return
@@ -450,7 +465,9 @@ class WarhammerEvents(commands.Cog):
         for signup in event['signups']:
             if signup['user_id'] == user.id:
                 signup['status'] = 'Rejected'
-                await self.update_event_embed(await interaction.channel.fetch_message(message_id), event)
+                # Convert to an INT when fetching the message object
+                message = await interaction.channel.fetch_message(int(message_id))
+                await self.update_event_embed(message, event)
                 await interaction.response.send_message(f"Rejected {signup['user_name']}'s sign-up.", ephemeral=True)
                 return
 
