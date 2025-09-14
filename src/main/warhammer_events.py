@@ -10,9 +10,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import logging
 
 
-events = {}
-views = []
-
 # Get a logger for this specific module
 logging = logging.getLogger(__name__)
 
@@ -49,7 +46,7 @@ CAREERS = {
 }
 
 class signup_button(discord.ui.Button):
-    def __init__(self, label: str, id: str, emoji: Emoji):
+    def __init__(self, label: str, id: str, emoji: Emoji, event_dict: dict, cog_instance: commands.Cog):
         super().__init__(
             label=label,
             style=discord.ButtonStyle.secondary,
@@ -58,6 +55,8 @@ class signup_button(discord.ui.Button):
             emoji=emoji,
             row=0 if CAREERS[id]['race'] in ["human", "chaos"] else 1 if CAREERS[id]['race'] in ["dwarf", "greenskin"] else 2
         )
+        self.events = event_dict
+        self.cog_instance = cog_instance
 
 
     # This method is called whenever a button is pressed.
@@ -66,7 +65,7 @@ class signup_button(discord.ui.Button):
         # Find the event data from our global dictionary using the message ID.
         event_id = interaction.message.id
         # Access the events dictionary via the instance attribute
-        if event_id not in events:
+        if event_id not in self.events:
             await interaction.response.send_message(
                 "This event no longer exists.", ephemeral=True
             )
@@ -74,7 +73,7 @@ class signup_button(discord.ui.Button):
 
         user = interaction.user
         career_id = interaction.data['custom_id']
-        event = events[event_id]
+        event = self.events[event_id]
 
         # Check if the user is already signed up.
         found = False
@@ -103,9 +102,9 @@ class signup_button(discord.ui.Button):
             })
 
         # Update the event message with the new sign-up list.
-        await update_event_embed(interaction.message, event)
+        await self.cog_instance.update_event_embed(interaction.message, event)
         with open('warhammer_events.json', 'w') as f:
-            json.dump(events, f, indent=4)
+            json.dump(self.events, f, indent=4)
 
         # Send an ephemeral message to the user confirming their sign-up.
         if not removed:
@@ -120,17 +119,18 @@ class signup_button(discord.ui.Button):
 
 # A subclass of View that will hold our sign-up buttons.
 class EventView(View):
-    def __init__(self, organizer_id: int, events_dict: dict, faction: str, guild: discord.Guild):
+    def __init__(self, organizer_id: int, events_dict: dict, faction: str, guild: discord.Guild, cog_instance: commands.Cog):
         super().__init__(timeout=None)
         self.organizer_id = organizer_id
         self.events_dict = events_dict # Store the events dictionary
+        self.cog_instance = cog_instance
 
         # Add a button for each career in our dictionary.
         for career_id, data in CAREERS.items():
             if data['faction'] != faction:
                 continue
             custom_emoji = discord.utils.get(guild.emojis, name=data['icon'])
-            self.add_item(signup_button(data['name'], career_id, custom_emoji))
+            self.add_item(signup_button(data['name'], career_id, custom_emoji, self.events_dict, self.cog_instance))
 
 
 def get_career_emoji(guild: discord.Guild, icon: str):
@@ -192,19 +192,28 @@ def create_event_embed(event: dict, guild: discord.Guild):
 
     return embed
 
-# Helper function to update an existing event message.
-async def update_event_embed(message: discord.Message, event: dict):
-    """Method to update an existing embed"""
-    embed = create_event_embed(event, message.guild)
-    await message.edit(embed=embed, view=EventView(event['organizer_id'], events, event['faction'], message.guild))
+
+def load_events():
+    if os.path.isfile('warhammer_events.json'):
+        with open('warhammer_events.json', 'r') as file:
+            return json.load(file)
+    else:
+        return {}
 
 
 class WarhammerEvents(commands.Cog):
-    def __init__(self, bot: commands.Bot, events: dict):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.events = events
         self.cleanup_passed_events.start()
         self.alert_event.start()
+        self.events = load_events()
+
+    # Helper function to update an existing event message.
+    async def update_event_embed(self, message: discord.Message, event: dict):
+        """Method to update an existing embed"""
+        embed = create_event_embed(event, message.guild)
+        await message.edit(embed=embed,
+                           view=EventView(event['organizer_id'], self.events, event['faction'], message.guild, self))
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -244,7 +253,7 @@ class WarhammerEvents(commands.Cog):
         current_utc_timestamp = datetime.now(timezone.utc)
         future_30_minutes_timestamp = (current_utc_timestamp + timedelta(minutes=30)).timestamp()
 
-        for event in events.values():
+        for event in self.events.values():
             if not event['has_announced'] and current_utc_timestamp.timestamp() <= event['time'] <= future_30_minutes_timestamp:
                 accepted_users = [s['user_id'] for s in event['signups'] if s['status'] == 'Accepted']
 
@@ -279,11 +288,11 @@ class WarhammerEvents(commands.Cog):
 
         message_id = int(message_id)
 
-        if message_id not in events:
+        if message_id not in self.events:
             await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
             return
 
-        event = events[message_id]
+        event = self.events[message_id]
         if event['organizer_id'] != interaction.user.id:
             await interaction.response.send_message("You are not the owner of this event.", ephemeral=True)
             return
@@ -291,9 +300,9 @@ class WarhammerEvents(commands.Cog):
         await interaction.response.defer()
         await (await interaction.channel.fetch_message(message_id)).delete()
         title = event['title']
-        events.pop(message_id)
+        self.events.pop(message_id)
         with open('warhammer_events.json', 'w') as f:
-            json.dump(events, f, indent=4)
+            json.dump(self.events, f, indent=4)
         await interaction.followup.send(f"Event cancelled: {title}", ephemeral=True)
 
 
@@ -358,8 +367,7 @@ class WarhammerEvents(commands.Cog):
         embed = create_event_embed(event_data, interaction.guild)
         
         # Pass the global `events` dictionary to the view.
-        view = EventView(organizer.id, events, faction, interaction.guild)
-        views.append(view) # save pointer
+        view = EventView(organizer.id, self.events, faction, interaction.guild, self)
 
         # Defer the response first to avoid the 3-second timeout.
         await interaction.response.defer()
@@ -368,9 +376,9 @@ class WarhammerEvents(commands.Cog):
         sent_message = await interaction.followup.send(embed=embed, view=view)
         
         # Store the event data using the message ID as the key.
-        events[sent_message.id] = event_data
+        self.events[sent_message.id] = event_data
         with open('warhammer_events.json', 'w') as file:
-            json.dump(events, file, indent=4)
+            json.dump(self.events, file, indent=4)
 
 
     @discord.app_commands.command(name="accept_ror_signup", description="Accept a sign-up for an event.")
@@ -387,13 +395,13 @@ class WarhammerEvents(commands.Cog):
             await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
             return
 
-        message_id = int(message_id)
+        message_id = message_id
 
-        if message_id not in events:
+        if message_id not in self.events:
             await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
             return
 
-        event = events[message_id]
+        event = self.events[message_id]
 
         # Check if the command user is the event organizer.
         if interaction.user.id != event['organizer_id']:
@@ -404,7 +412,7 @@ class WarhammerEvents(commands.Cog):
         for signup in event['signups']:
             if signup['user_id'] == user.id:
                 signup['status'] = 'Accepted'
-                await update_event_embed(await interaction.channel.fetch_message(message_id), event)
+                await self.update_event_embed(await interaction.channel.fetch_message(message_id), event)
                 await interaction.response.send_message(f"Accepted {signup['user_name']}'s sign-up.", ephemeral=True)
                 return
 
@@ -427,11 +435,11 @@ class WarhammerEvents(commands.Cog):
 
         message_id = int(message_id)
 
-        if message_id not in events:
+        if message_id not in self.events:
             await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
             return
 
-        event = events[message_id]
+        event = self.events[message_id]
 
         # Check if the command user is the event organizer.
         if interaction.user.id != event['organizer_id']:
@@ -442,7 +450,7 @@ class WarhammerEvents(commands.Cog):
         for signup in event['signups']:
             if signup['user_id'] == user.id:
                 signup['status'] = 'Rejected'
-                await update_event_embed(await interaction.channel.fetch_message(message_id), event)
+                await self.update_event_embed(await interaction.channel.fetch_message(message_id), event)
                 await interaction.response.send_message(f"Rejected {signup['user_name']}'s sign-up.", ephemeral=True)
                 return
 
@@ -451,8 +459,4 @@ class WarhammerEvents(commands.Cog):
 
 async def setup(bot: commands.Bot):
     """Loads the cog"""
-    events = {}
-    if os.path.isfile('warhammer_events.json'):
-        with open('warhammer_events.json', 'r') as file:
-            events = json.load(file)
-    await bot.add_cog(WarhammerEvents(bot, events))
+    await bot.add_cog(WarhammerEvents(bot))
