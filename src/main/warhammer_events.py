@@ -154,11 +154,11 @@ def create_event_embed(event: dict, guild: discord.Guild):
     pending_signups = sorted([s for s in event['signups'] if s['status'] == 'Pending'],
                              key=lambda s: s['career']['archtype'])
     accepted_tank_signups = sorted([s for s in event['signups'] if s['status'] == 'Accepted' and s['career']['archtype'] == 'Tank'],
-                              key=lambda s: s['career'])
+                              key=lambda s: s['career']['name'])
     accepted_healer_signups = sorted([s for s in event['signups'] if s['status'] == 'Accepted' and s['career']['archtype'] == 'Healer'],
-                              key=lambda s: s['career'])
+                              key=lambda s: s['career']['name'])
     accepted_dps_signups = sorted([s for s in event['signups'] if s['status'] == 'Accepted' and s['career']['archtype'] == 'DPS'],
-                              key=lambda s: s['career'])
+                              key=lambda s: s['career']['name'])
     rejected_signups = sorted([s for s in event['signups'] if s['status'] == 'Rejected'],
                               key=lambda s: s['career']['archtype'])
 
