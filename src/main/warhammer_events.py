@@ -153,28 +153,42 @@ def create_event_embed(event: dict, guild: discord.Guild):
     # Group sign-ups by status.
     pending_signups = sorted([s for s in event['signups'] if s['status'] == 'Pending'],
                              key=lambda s: s['career']['archtype'])
-    accepted_signups = sorted([s for s in event['signups'] if s['status'] == 'Accepted'],
-                              key=lambda s: s['career']['archtype'])
+    accepted_tank_signups = sorted([s for s in event['signups'] if s['status'] == 'Accepted' and s['career']['archtype'] == 'Tank'],
+                              key=lambda s: s['career'])
+    accepted_healer_signups = sorted([s for s in event['signups'] if s['status'] == 'Accepted' and s['career']['archtype'] == 'Healer'],
+                              key=lambda s: s['career'])
+    accepted_dps_signups = sorted([s for s in event['signups'] if s['status'] == 'Accepted' and s['career']['archtype'] == 'DPS'],
+                              key=lambda s: s['career'])
     rejected_signups = sorted([s for s in event['signups'] if s['status'] == 'Rejected'],
                               key=lambda s: s['career']['archtype'])
 
     # Create the fields for the embed.
-    accepted_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in accepted_signups
+    accepted_tank_text = "\n".join([
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in accepted_tank_signups
     ]) or "No one has been accepted yet."
-    embed.add_field(name="✅ Accepted", value=accepted_text, inline=False)
+    embed.add_field(name=f"✅ Accepted Tanks ({str(len(accepted_tank_signups))})", value=accepted_tank_text, inline=False)
+
+    accepted_healer_text = "\n".join([
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in accepted_healer_signups
+    ]) or "No one has been accepted yet."
+    embed.add_field(name=f"✅ Accepted Healers ({str(len(accepted_healer_signups))})", value=accepted_healer_text, inline=False)
+
+    accepted_dps_text = "\n".join([
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in accepted_dps_signups
+    ]) or "No one has been accepted yet."
+    embed.add_field(name=f"✅ Accepted DPS ({str(len(accepted_dps_signups))})", value=accepted_dps_text, inline=False)
 
     pending_text = "\n".join([
         f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in pending_signups
     ]) or "No pending sign-ups."
-    embed.add_field(name="⏳ Pending", value=pending_text, inline=False)
+    embed.add_field(name=f"⏳ Pending ({str(len(pending_signups))})", value=pending_text, inline=False)
 
     rejected_text = "\n".join([
         f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in rejected_signups
     ]) or "No rejected sign-ups."
     # Only add the rejected field if there are rejected people to keep it clean.
     if rejected_signups:
-        embed.add_field(name="❌ Rejected", value=rejected_text, inline=False)
+        embed.add_field(name=f"❌ Rejected ({str(len(rejected_signups))})", value=rejected_text, inline=False)
 
     return embed
 

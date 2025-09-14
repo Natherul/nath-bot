@@ -174,6 +174,14 @@ async def on_ready():
             logger.info(f"Synced {len(special_sync)} commands to TUE")
         except Exception as e:
             logger.error(f"Failed to sync commands: {e}")
+        need_save = False
+        for guild in bot.guilds:
+            if guild.id not in bot.confs:
+                this_guild = bot.allconf
+                bot.confs[str(guild.id)] = this_guild
+                need_save = True
+        if need_save:
+            save_conf()
 
 
 @bot.event
