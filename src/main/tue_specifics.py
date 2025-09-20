@@ -58,27 +58,30 @@ class TUESpecifics(commands.Cog):
     @tasks.loop(minutes=10)
     async def check_members(self):
         """Main method that checks if there needs to be any modifications to roles"""
-        guild = self.bot.get_guild(self.bot.TUE)
-        members = guild.members
-        warhammer_role = guild.get_role(warhammer_guild_role)
-        officer_role = guild.get_role(officer_role_id)
-        to_add_role_to = []
-        to_remove_role_from = []
-        member_list = get_guild_members(guild_id)
-        members_with_role = [member for member in members if any(role.id == warhammer_role.id for role in member.roles)]
-        members_without_role = [member for member in members if all(role.id != warhammer_role.id for role in member.roles)]
-        for member in members_with_role:
-            if member.display_name.replace('[TUE]', '').strip() not in member_list and officer_role not in member.roles:
-                to_remove_role_from.append(member)
-        for member in members_without_role:
-            if member.display_name.replace('[TUE]', '').strip() in member_list:
-                to_add_role_to.append(member)
-        for member in to_add_role_to:
-            logging.info(f"Adding role to {member.display_name}")
-            await member.add_roles(warhammer_role)
-        for member in to_remove_role_from:
-            logging.info(f"Removing role from {member.display_name}")
-            await member.remove_roles(warhammer_role)
+        try:
+            guild = self.bot.get_guild(self.bot.TUE)
+            members = guild.members
+            warhammer_role = guild.get_role(warhammer_guild_role)
+            officer_role = guild.get_role(officer_role_id)
+            to_add_role_to = []
+            to_remove_role_from = []
+            member_list = get_guild_members(guild_id)
+            members_with_role = [member for member in members if any(role.id == warhammer_role.id for role in member.roles)]
+            members_without_role = [member for member in members if all(role.id != warhammer_role.id for role in member.roles)]
+            for member in members_with_role:
+                if member.display_name.replace('[TUE]', '').strip() not in member_list and officer_role not in member.roles:
+                    to_remove_role_from.append(member)
+            for member in members_without_role:
+                if member.display_name.replace('[TUE]', '').strip() in member_list:
+                    to_add_role_to.append(member)
+            for member in to_add_role_to:
+                logging.info(f"Adding role to {member.display_name}")
+                await member.add_roles(warhammer_role)
+            for member in to_remove_role_from:
+                logging.info(f"Removing role from {member.display_name}")
+                await member.remove_roles(warhammer_role)
+        except Exception as e:
+            logging.error(e)
 
 
     @check_members.before_loop
