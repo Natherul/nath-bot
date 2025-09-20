@@ -161,6 +161,8 @@ async def on_ready():
         await bot.load_extension('warhammer_events')
         logger.info("Loading moderation module")
         await bot.load_extension('moderation')
+        logger.info("Loading TUE specific module")
+        await bot.load_extension('tue_specifics')
         logger.info('LOADED')
         channel_check.start(bot)
 
