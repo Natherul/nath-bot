@@ -178,7 +178,7 @@ async def on_ready():
             logger.error(f"Failed to sync commands: {e}")
         need_save = False
         for guild in bot.guilds:
-            if guild.id not in bot.confs:
+            if str(guild.id) not in bot.confs:
                 this_guild = bot.allconf
                 bot.confs[str(guild.id)] = this_guild
                 need_save = True
@@ -190,7 +190,7 @@ async def on_ready():
 async def on_guild_join(guild):
     """When the bot joins a new server it will configure itself with the values it needs saved
     :param guild: The guild it happened on"""
-    if guild.id not in bot.confs:
+    if str(guild.id) not in bot.confs:
         this_guild = bot.allconf
         bot.confs[str(guild.id)] = this_guild
         save_conf()
