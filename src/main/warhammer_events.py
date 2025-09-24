@@ -208,6 +208,22 @@ class WarhammerEvents(commands.Cog):
         self.alert_event.start()
         self.events = load_events()
 
+        # 👇 ADDED: restore persistent views for events after restart
+        try:
+            for message_id, event in list(self.events.items()):
+                try:
+                    guild = self.bot.get_guild(event.get("guild"))
+                    if guild is None:
+                        continue
+                    organizer_id = event.get("organizer_id")
+                    faction = event.get("faction")
+                    view = EventView(organizer_id, self.events, faction, guild, self)
+                    self.bot.add_view(view, message_id=int(message_id))
+                except Exception as e:
+                    logging.exception(f"Failed to restore EventView for message_id={message_id}: {e}")
+        except Exception as e:
+            logging.exception(f"Error while restoring persistent EventViews: {e}")
+
     # Helper function to update an existing event message.
     async def update_event_embed(self, message: discord.Message, event: dict):
         """Method to update an existing embed"""
