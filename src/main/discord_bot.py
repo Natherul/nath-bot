@@ -15,7 +15,7 @@ KICKED_ICON = "https://p7.hiclipart.com/preview/825/776/55/karate-kick-martial-a
 ERROR_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Error.svg/1200px-Error.svg.png"
 ROR_ICON = "http://www.tue.nu/misc/ror.png"
 TIME_STRING = "%Y-%m-%d %H:%M:%S"
-CONFIGURATION = "guilds.txt"
+CONFIGURATION = "guilds.json"
 DESTRO_STRING = ",Destruction\n"
 ORDER_STRING = ",Order\n"
 NOT_MOD_STRING = "You are not set as moderator and is not allowed to use this command."
@@ -113,6 +113,18 @@ bot.bad_domains = []
 bot.lastDeletedMessage = ""
 
 
+def load_config():
+    import os
+    if not os.path.exists(CONFIGURATION):
+        return {}
+    with open(CONFIGURATION, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_config(configs):
+    with open(CONFIGURATION, "w", encoding="utf-8") as f:
+        json.dump(configs, f, indent=4)
+
+
 @bot.event
 async def on_ready():
     """Starting method for the bot. This is where the bot loads previous values"""
@@ -134,9 +146,7 @@ async def on_ready():
         l.close()
         logger.info('Loading guild configuration')
         # the configurations for the diff disc servers
-        g = open(CONFIGURATION, 'r')
-        bot.confs = json.loads(g.read().replace("'", '"'))
-        g.close()
+        bot.confs = load_config()
         remake = False
         for guild in bot.confs:
             this_guild = bot.confs[str(guild)]
@@ -148,9 +158,7 @@ async def on_ready():
 
         if remake:
             logger.debug('Configuration missed in guild config. Remaking')
-            c = open(CONFIGURATION, 'w')
-            c.write(str(bot.confs))
-            c.close()
+            save_config(bot.confs)
 
         logger.info('Downloading new bad domain lists')
         domain_filter.download_files()
@@ -196,7 +204,7 @@ async def on_guild_join(guild):
         save_conf()
     else:
         this_guild = bot.confs[str(guild.id)]
-        this_guild['enabled'] = '1'
+        this_guild['enabled'] = True
         bot.confs[str(guild.id)] = this_guild
         save_conf()
     await guild.owner.send('Thanks for inviting me to the server. To get started you need to set up what channels I should talk to when announcing. Do this by:\n"/configure" in any channel in the guild and I will respond with your options.\nYou can at any time also issue: "/help" to see what commands are avilable.')
@@ -207,7 +215,7 @@ async def on_guild_remove(guild):
     """When the bot gets removed from a server we set the config to not be enabled on that server
     :param guild: The guild it happened on"""
     this_guild = bot.confs[str(guild.id)]
-    this_guild['enabled'] = '0'
+    this_guild['enabled'] = False
     bot.confs[str(guild.id)] = this_guild
     save_conf()
 
@@ -225,16 +233,16 @@ async def on_message(message):
     # Message moderation
     else:
         guild = bot.confs[str(message.guild.id)]
-        if guild['chatModeration'] == '1':
+        if guild.get('chatModeration'):
             if set(bot.bad_domains).intersection(set(message.content.split())):
                 # The message contained a bad domain and should be blocked
                 bot.lastDeletedMessage = message.content
                 await message.delete()
-                if guild['logChannel'] == '0':
+                if not guild.get('logChannel'):
                     return
                 else:
                     try:
-                        await bot.get_channel(int(guild['logChannel'])).send(
+                        await bot.get_channel(int(guild.get('logChannel'))).send(
                             embed=make_embed("Message automatically removed by bot", bot.lastDeletedMessage, 0xfa0000, ERROR_ICON, {"Reason": "Contained bad link"}))
                     except discord.Forbidden:
                         await bot.get_guild(message.guild.id).owner.send(LOG_PERM_ERROR)
@@ -247,10 +255,10 @@ async def on_member_join(member):
     """If someone joins a guild the bot (if configured to do so) will greet them
     :param member: The member that joined"""
     guild = bot.confs[str(member.guild.id)]
-    if guild['boardingChannel'] != '0' and guild['welcomeMessage'] != '0':
+    if guild.get('boardingChannel') and guild.get('welcomeMessage'):
         message = message_formatter_member(guild['welcomeMessage'], member, False)
         try:
-            await bot.get_channel(int(guild["boardingChannel"])).send(message)
+            await bot.get_channel(int(guild.get("boardingChannel"))).send(message)
         except discord.Forbidden:
             await bot.get_guild(member.guild.id).owner.send(
                 "Nath-bot is enabled on your server but does not have the permissions to send messages to the boarding channel though a boarding channel is set.")
@@ -264,7 +272,7 @@ async def on_member_remove(member):
      check if the leaving was because of a moderator action.
      :param member: The member that left or got kicked/banned"""
     guild = bot.confs[str(member.guild.id)]
-    if guild['removeAnnounce'] != '0' and guild['logChannel'] != '0':
+    if guild.get('removeAnnounce') and guild.get('logChannel'):
         this_guild = bot.get_guild(member.guild.id) 
         async for entry in this_guild.audit_logs(limit=1):
             # this is only the most recent event due to limit set above
@@ -274,22 +282,22 @@ async def on_member_remove(member):
             try:
                 if entry.action == discord.AuditLogAction.ban and entry.target.name == member.name:
                     msg = entry.user.name + " banned " + entry.target.name
-                    await bot.get_channel(int(guild['logChannel'])).send(
+                    await bot.get_channel(int(guild.get('logChannel'))).send(
                         embed=make_embed("User Banned", msg, 0xfa0000, BANNED_ICON, {"Reason" : entry.reason}))
                     return
                 elif entry.action == discord.AuditLogAction.kick and entry.target.name == member.name:
                     msg = entry.user.name + " kicked " + entry.target.name
-                    await bot.get_channel(int(guild['logChannel'])).send(
+                    await bot.get_channel(int(guild.get('logChannel'))).send(
                         embed=make_embed("User Kicked", msg, 0xfa0000, KICKED_ICON, {"Reason" : entry.reason}))
                     return
             except discord.Forbidden:
                 await bot.get_guild(member.guild.id).owner.send(LOG_PERM_ERROR)
             except discord.HTTPException:
                 logger.error(HTTP_ERROR)
-    if guild['leaveMessage'] != '0' and guild['boardingChannel'] != '0':
+    if guild.get('leaveMessage') and guild.get('boardingChannel'):
         message = message_formatter_member(guild['leaveMessage'], member, True)
         try:
-            await bot.get_channel(int(guild["boardingChannel"])).send(message)
+            await bot.get_channel(int(guild.get("boardingChannel"))).send(message)
         except discord.Forbidden:
             await bot.get_guild(member.guild.id).owner.send(
                 "Nath-bot is enabled on your server but does not have the permissions to send messages to the boarding channel though a boarding channel is set.")
@@ -303,7 +311,7 @@ async def on_member_update(before, after):
     :param before: The member object before changes
     :param after: The member object after changes"""
     guild = bot.confs[str(before.guild.id)]
-    if guild['logChannel'] == '0':
+    if not guild.get('logChannel'):
         return
     # A role has been added or removed
     this_guild = bot.get_guild(before.guild.id)
@@ -328,20 +336,20 @@ async def on_member_update(before, after):
                                 verb = "to"
                     message = "{moderator} {action} {role} {verb} {target}".format(
                         action=action, moderator=entry.user.display_name, target=entry.target.display_name, role=role, verb=verb)
-                    await bot.get_channel(int(guild['logChannel'])).send(
+                    await bot.get_channel(int(guild.get('logChannel'))).send(
                         embed=make_embed("Role update", message, 0xfa0000, "", {}))
                     return
             elif before.display_name != after.display_name:
                 if entry.action == discord.AuditLogAction.member_update and entry.target.name == after.name:
                     message = "{moderator} changed the name of {target} (account name) to {newname}".format(
                         moderator=entry.user.display_name, target=entry.target.name, newname=after.display_name)
-                    await bot.get_channel(int(guild['logChannel'])).send(
+                    await bot.get_channel(int(guild.get('logChannel'))).send(
                         embed=make_embed("Name updated", message, 0xfa0000, "", {}))
                     return
             elif entry.action == discord.AuditLogAction.unban and entry.target.name == after.name:
                 message = "{moderator} unbanned {target} (account name)".format(
                     moderator=entry.user.display_name, target=entry.target.name)
-                await bot.get_channel(int(guild['logChannel'])).send(
+                await bot.get_channel(int(guild.get('logChannel'))).send(
                     embed=make_embed("Member unbanned", message, 0xfa0000, "", {}))
                 return
     except discord.Forbidden:
@@ -356,12 +364,12 @@ async def on_message_edit(before, after):
     :param before: The message object before changes
     :param after: The message object after changes"""
     guild = bot.confs[str(before.guild.id)]
-    if guild['logChannel'] == '0' or str(before.channel.id) in guild['ignoredLogChannels']:
+    if not guild.get('logChannel') or str(before.channel.id) in [str(x) for x in guild.get('ignoredLogChannels', [])]:
         return
 
     try:
         if before.content != after.content:
-            await bot.get_channel(int(guild['logChannel'])).send(
+            await bot.get_channel(int(guild.get('logChannel'))).send(
                 embed=make_embed("Message updated", before.author.display_name +
                                  "s message has been changed", 0xfa0000, "",
                                  {'Before' : before.content, 'After' : after.content}))
@@ -373,7 +381,7 @@ async def on_message_edit(before, after):
                     moderator = entry.user.display_name
             message = before.author.display_name + "s message has " + "been pinned" if after.pinned else\
                 "has had its pinned status removed" + " by " + moderator
-            await bot.get_channel(int(guild['logChannel'])).send(
+            await bot.get_channel(int(guild.get('logChannel'))).send(
                 embed=make_embed("Pin edit", message, 0xfa0000, "", {'Message': before.content}))
     except discord.Forbidden:
         await bot.get_guild(before.guild.id).owner.send(LOG_PERM_ERROR)
@@ -386,7 +394,7 @@ async def on_message_delete(message):
     """If a message gets deleted the bot can find it and see if it was done by a moderator or its author
     :param message: The message that got deleted"""
     guild = bot.confs[str(message.guild.id)]
-    if guild['logChannel'] == '0' or bot.lastDeletedMessage == message.content or str(message.channel.id) in guild['ignoredLogChannels']:
+    if guild['logChannel'] == 0 or bot.lastDeletedMessage == message.content or str(message.channel.id) in [str(x) for x in guild.get('ignoredLogChannels', [])]:
         return
     try:
         this_guild = bot.get_guild(message.guild.id)
@@ -396,7 +404,7 @@ async def on_message_delete(message):
                 who_did = entry.user.display_name
             else:
                 who_did = message.author.display_name
-            await bot.get_channel(int(guild['logChannel'])).send(
+            await bot.get_channel(int(guild.get('logChannel'))).send(
                 embed=make_embed("Message deletion", message.content, 0xfa0000, "", {'Who deleted message': who_did}))
     except discord.Forbidden:
         await bot.get_guild(message.guild.id).owner.send(LOG_PERM_ERROR)
@@ -409,7 +417,7 @@ async def on_thread_create(thread):
     """If a thread is created the bot should see it and log it if logging is on
     :param thread: The thread object that got created"""
     guild = bot.confs[str(thread.guild.id)]
-    if guild['logChannel'] == '0' or str(thread.channel.id) in guild['ignoredLogChannels']:
+    if not guild.get('logChannel') or str(thread.channel.id) in [str(x) for x in guild.get('ignoredLogChannels', [])]:
         return
     try:
         this_guild = bot.get_guild(thread.guild.id)
@@ -419,7 +427,7 @@ async def on_thread_create(thread):
                 who_did = entry.user.display_name
             else:
                 who_did = thread.owner.display_name
-            await bot.get_channel(int(guild['logChannel'])).send(
+            await bot.get_channel(int(guild.get('logChannel'))).send(
                 embed=make_embed("Thread creation", thread.starter_message, 0xfa0000, "", {'Who created thread': who_did}))
     except discord.Forbidden:
         await bot.get_guild(thread.guild.id).owner.send(LOG_PERM_ERROR)
@@ -432,7 +440,7 @@ async def on_thread_delete(thread):
     """If a thread is removed then the bot should log it if logging is on
     :param thread: The thread object that got deleted"""
     guild = bot.confs[str(thread.guild.id)]
-    if guild['logChannel'] == '0' or str(thread.channel.id) in guild['ignoredLogChannels']:
+    if not guild.get('logChannel') or str(thread.channel.id) in [str(x) for x in guild.get('ignoredLogChannels', [])]:
         return
     try:
         this_guild = bot.get_guild(thread.guild.id)
@@ -442,7 +450,7 @@ async def on_thread_delete(thread):
                 who_did = entry.user.display_name
             else:
                 who_did = thread.owner.display_name
-            await bot.get_channel(int(guild['logChannel'])).send(
+            await bot.get_channel(int(guild.get('logChannel'))).send(
                 embed=make_embed("Thread deletion", thread.starter_message, 0xfa0000, "", {'Who deleted thread': who_did}))
     except discord.Forbidden:
         await bot.get_guild(thread.guild.id).owner.send(LOG_PERM_ERROR)
@@ -456,11 +464,11 @@ async def on_thread_update(before, after):
     :param before: The thread object before changes
     :param after: The thread object after changes"""
     guild = bot.confs[str(before.guild.id)]
-    if guild['logChannel'] == '0' or str(before.channel.id) in guild['ignoredLogChannels']:
+    if not guild.get('logChannel') or str(before.channel.id) in [str(x) for x in guild.get('ignoredLogChannels', [])]:
         return
     try:
         if before.starter_message != after.starter_message:
-            await bot.get_channel(int(guild['logChannel'])).send(
+            await bot.get_channel(int(guild.get('logChannel'))).send(
                 embed=make_embed("Thread updated", before.owner.display_name +
                                  "s message has been changed", 0xfa0000, "",
                                  {'Before' : before.starter_message, 'After' : after.starter_message}))
@@ -472,7 +480,7 @@ async def on_thread_update(before, after):
                     moderator = entry.user.display_name
             message = before.owner.display_name + "s thread has " + "been locked" if after.locked else\
                 "has been unlocked" + " by " + moderator
-            await bot.get_channel(int(guild['logChannel'])).send(
+            await bot.get_channel(int(guild.get('logChannel'))).send(
                 embed=make_embed("Thread edit", message, 0xfa0000, "", {'Thread': before.starter_message}))
     except discord.Forbidden:
         await bot.get_guild(before.guild.id).owner.send(LOG_PERM_ERROR)
@@ -551,9 +559,7 @@ def make_embed(title, description, colour, thumbnail, fields):
 
 def save_conf():
     """Help method to update the saved configuration of a server"""
-    g = open(CONFIGURATION, 'w')
-    g.write(str(bot.confs))
-    g.close()
+    save_config(bot.confs)
 
 
 def load_list(variable, file_path):
