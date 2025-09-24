@@ -208,7 +208,7 @@ class WarhammerEvents(commands.Cog):
         self.alert_event.start()
         self.events = load_events()
 
-        # 👇 ADDED: restore persistent views for events after restart
+        # Restore persistent views for events after restart
         try:
             for message_id, event in list(self.events.items()):
                 try:
