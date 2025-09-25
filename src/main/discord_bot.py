@@ -6,6 +6,7 @@ from discord.ext import tasks, commands
 import domain_filter
 import logging
 import sys
+import os
 
 # Constants
 QUESTION_ICON = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Question_mark_%28black%29.svg/1200px-Question_mark_%28black%29.svg.png"
@@ -114,15 +115,11 @@ bot.lastDeletedMessage = ""
 
 
 def load_config():
-    import os
+    """Method to load the config file"""
     if not os.path.exists(CONFIGURATION):
         return {}
     with open(CONFIGURATION, "r", encoding="utf-8") as f:
         return json.load(f)
-
-def save_config(configs):
-    with open(CONFIGURATION, "w", encoding="utf-8") as f:
-        json.dump(configs, f, indent=4)
 
 
 @bot.event
@@ -158,7 +155,7 @@ async def on_ready():
 
         if remake:
             logger.debug('Configuration missed in guild config. Remaking')
-            save_config(bot.confs)
+            save_conf()
 
         logger.info('Downloading new bad domain lists')
         domain_filter.download_files()
@@ -559,18 +556,8 @@ def make_embed(title, description, colour, thumbnail, fields):
 
 def save_conf():
     """Help method to update the saved configuration of a server"""
-    save_config(bot.confs)
-
-
-def load_list(variable, file_path):
-    """Helper method to load a list from file
-    :param variable: The variable to load the list into
-    :param file_path: The path to the list to load"""
-    f = open(file_path, 'r')
-    content = f.read()
-    f.close()
-    for element in content.replace('[', '').replace(']', '').replace('"', '').replace("'", '').strip().split(','):
-        variable.append(str(element.strip()))
+    with open(CONFIGURATION, "w", encoding="utf-8") as f:
+        json.dump(bot.confs, f, indent=4)
 
 
 bot.run(TOKEN)
