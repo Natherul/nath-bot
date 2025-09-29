@@ -78,12 +78,12 @@ class TUESpecifics(commands.Cog):
             for member in to_add_role_to:
                 logging.info(f"Adding role to {member.display_name}")
                 await member.add_roles(warhammer_role)
-                if tue_conf["logChannel"] != '0':
+                if tue_conf["logChannel"] != 0:
                     await self.bot.get_channel(tue_conf["logChannel"]).send(f"Added guild role to {member.display_name}")
             for member in to_remove_role_from:
                 logging.info(f"Removing role from {member.display_name}")
                 await member.remove_roles(warhammer_role)
-                if tue_conf["logChannel"] != '0':
+                if tue_conf["logChannel"] != 0:
                     await self.bot.get_channel(tue_conf["logChannel"]).send(f"Removed guild role from {member.display_name}")
         except Exception as e:
             logging.error(e)
