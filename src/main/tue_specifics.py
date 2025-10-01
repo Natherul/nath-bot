@@ -69,6 +69,9 @@ class TUESpecifics(commands.Cog):
             member_list = get_guild_members(guild_id)
             members_with_role = [member for member in members if any(role.id == warhammer_role.id for role in member.roles)]
             members_without_role = [member for member in members if all(role.id != warhammer_role.id for role in member.roles)]
+            channel = None
+            if tue_conf["logChannel"] != 0:
+                channel = self.bot.get_channel(tue_conf["logChannel"])
             for member in members_with_role:
                 if member.display_name.replace('[TUE]', '').strip() not in member_list and officer_role not in member.roles:
                     to_remove_role_from.append(member)
@@ -78,13 +81,13 @@ class TUESpecifics(commands.Cog):
             for member in to_add_role_to:
                 logging.info(f"Adding role to {member.display_name}")
                 await member.add_roles(warhammer_role)
-                if tue_conf["logChannel"] != 0:
-                    await self.bot.get_channel(tue_conf["logChannel"]).send(f"Added guild role to {member.display_name}")
+                if channel is not None:
+                    await channel.send(f"Added guild role to {member.display_name}")
             for member in to_remove_role_from:
                 logging.info(f"Removing role from {member.display_name}")
                 await member.remove_roles(warhammer_role)
-                if tue_conf["logChannel"] != 0:
-                    await self.bot.get_channel(tue_conf["logChannel"]).send(f"Removed guild role from {member.display_name}")
+                if channel is not None:
+                    await channel.send(f"Removed guild role from {member.display_name}")
         except Exception as e:
             logging.error(e)
 
