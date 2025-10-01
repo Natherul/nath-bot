@@ -60,7 +60,7 @@ class TUESpecifics(commands.Cog):
         """Main method that checks if there needs to be any modifications to roles"""
         try:
             guild = self.bot.get_guild(self.bot.TUE)
-            tue_conf = self.config.get(self.bot.TUE)
+            tue_conf = self.config.get(str(self.bot.TUE))
             members = guild.members
             warhammer_role = guild.get_role(warhammer_guild_role)
             officer_role = guild.get_role(officer_role_id)
