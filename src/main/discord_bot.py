@@ -361,7 +361,7 @@ async def on_message_edit(before, after):
     :param before: The message object before changes
     :param after: The message object after changes"""
     guild = bot.confs[str(before.guild.id)]
-    if not guild.get('logChannel') or str(before.channel.id) in [str(x) for x in guild.get('ignoredLogChannels', [])]:
+    if not guild.get('logChannel') or str(before.channel.id) in guild.get('ignoredLogChannels', []):
         return
 
     try:
