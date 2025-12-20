@@ -2,6 +2,7 @@ import discord
 from discord import Emoji
 from discord.ext import commands, tasks
 from discord.ui import View
+from discord import app_commands
 from typing import Literal
 import json
 import os
@@ -44,6 +45,38 @@ CAREERS = {
     'sorcerer': {'name': 'Sorcerer', 'icon': 'sorc', 'faction': 'Destruction', 'archtype': 'DPS', 'race': 'dark-elf'},
     'witch_elf': {'name': 'Witch Elf', 'icon': 'we', 'faction': 'Destruction', 'archtype': 'DPS', 'race': 'dark-elf'},
 }
+
+
+class MemberOrIdTransformer(app_commands.Transformer):
+    """Transformer that accepts either a Member mention or a user ID string"""
+    
+    async def transform(self, interaction: discord.Interaction, value) -> int:
+        """
+        Transforms the input to a user ID.
+        Accepts: @mentions (Member objects), user IDs as strings, or raw IDs
+        """
+        # If Discord already resolved it to a Member object, just return the ID
+        if isinstance(value, discord.Member):
+            return value.id
+        
+        # If it's a string, try to parse it
+        if isinstance(value, str):
+            # Try to extract user ID from mention format <@123456789>
+            if value.startswith('<@') and value.endswith('>'):
+                user_id_str = value.strip('<@!>')
+                if user_id_str.isdigit():
+                    return int(user_id_str)
+            
+            # Try to parse as direct ID
+            if value.isdigit():
+                return int(value)
+        
+        raise app_commands.AppCommandError("Invalid user. Please mention a user or provide their ID.")
+    
+    async def autocomplete(self, interaction: discord.Interaction, value: str):
+        """Optional: provide autocomplete suggestions"""
+        return []
+
 
 class signup_button(discord.ui.Button):
     def __init__(self, label: str, id: str, emoji: Emoji, event_dict: dict, cog_instance: commands.Cog):
@@ -164,27 +197,27 @@ def create_event_embed(event: dict, guild: discord.Guild):
 
     # Create the fields for the embed.
     accepted_tank_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in accepted_tank_signups
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}({s['user_id']})** ({s['career']['name']})" for s in accepted_tank_signups
     ]) or "No one has been accepted yet."
     embed.add_field(name=f"✅ Accepted Tanks ({str(len(accepted_tank_signups))})", value=accepted_tank_text, inline=False)
 
     accepted_healer_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in accepted_healer_signups
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}({s['user_id']})** ({s['career']['name']})" for s in accepted_healer_signups
     ]) or "No one has been accepted yet."
     embed.add_field(name=f"✅ Accepted Healers ({str(len(accepted_healer_signups))})", value=accepted_healer_text, inline=False)
 
     accepted_dps_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in accepted_dps_signups
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}({s['user_id']})** ({s['career']['name']})" for s in accepted_dps_signups
     ]) or "No one has been accepted yet."
     embed.add_field(name=f"✅ Accepted DPS ({str(len(accepted_dps_signups))})", value=accepted_dps_text, inline=False)
 
     pending_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in pending_signups
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}({s['user_id']})** ({s['career']['name']})" for s in pending_signups
     ]) or "No pending sign-ups."
     embed.add_field(name=f"⏳ Pending ({str(len(pending_signups))})", value=pending_text, inline=False)
 
     rejected_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}** ({s['career']['name']})" for s in rejected_signups
+        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}({s['user_id']})** ({s['career']['name']})" for s in rejected_signups
     ]) or "No rejected sign-ups."
     # Only add the rejected field if there are rejected people to keep it clean.
     if rejected_signups:
@@ -362,7 +395,7 @@ class WarhammerEvents(commands.Cog):
 
             # 3. Find the user's timezone and make the datetime "aware"
             user_tz = ZoneInfo(timezone)
-            aware_dt = naive_dt.astimezone(user_tz)
+            aware_dt = naive_dt.replace(tzinfo=user_tz)
 
             # 4. Get the Unix timestamp (seconds since 1970-01-01), which is what Discord needs
             timestamp = int(aware_dt.timestamp())
@@ -417,7 +450,7 @@ class WarhammerEvents(commands.Cog):
     async def accept_signup(
         self,
         interaction: discord.Interaction,
-        user: discord.Member,
+        user: app_commands.Transform[int, MemberOrIdTransformer],
         message_id: str
     ):
         """
@@ -427,7 +460,6 @@ class WarhammerEvents(commands.Cog):
             await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
             return
 
-        # Keep message_id as a STRING for the dictionary lookup
         if message_id not in self.events:
             await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
             return
@@ -439,23 +471,33 @@ class WarhammerEvents(commands.Cog):
             await interaction.response.send_message("You are not the organizer of this event.", ephemeral=True)
             return
 
+        # user is now just an int (user ID)
+        # Try to fetch the member to get their current display name
+        try:
+            member = await interaction.guild.fetch_member(user)
+            user_display_name = member.display_name
+        except discord.NotFound:
+            user_display_name = f"User ID {user}"
+
         # Find the user in the sign-up list.
         for signup in event['signups']:
-            if signup['user_id'] == user.id:
+            if signup['user_id'] == user:
                 signup['status'] = 'Accepted'
                 # Convert to an INT when fetching the message object
                 message = await interaction.channel.fetch_message(int(message_id))
                 await self.update_event_embed(message, event)
-                await interaction.response.send_message(f"Accepted {signup['user_name']}'s sign-up.", ephemeral=True)
+                with open('warhammer_events.json', 'w') as f:
+                    json.dump(self.events, f, indent=4)
+                await interaction.response.send_message(f"Accepted {user_display_name}'s sign-up.", ephemeral=True)
                 return
 
-        await interaction.response.send_message(f"{user.display_name} is not in the sign-up list.", ephemeral=True)
+        await interaction.response.send_message(f"{user_display_name} is not in the sign-up list.", ephemeral=True)
 
     @discord.app_commands.command(name="reject_ror_signup", description="Reject a sign-up for an event.")
     async def reject_signup(
         self,
         interaction: discord.Interaction,
-        user: discord.Member,
+        user: app_commands.Transform[int, MemberOrIdTransformer],
         message_id: str
     ):
         """
@@ -465,7 +507,6 @@ class WarhammerEvents(commands.Cog):
             await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
             return
 
-        # Keep message_id as a STRING for the dictionary lookup
         if message_id not in self.events:
             await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
             return
@@ -477,17 +518,27 @@ class WarhammerEvents(commands.Cog):
             await interaction.response.send_message("You are not the organizer of this event.", ephemeral=True)
             return
 
+        # user is now just an int (user ID)
+        # Try to fetch the member to get their current display name
+        try:
+            member = await interaction.guild.fetch_member(user)
+            user_display_name = member.display_name
+        except discord.NotFound:
+            user_display_name = f"User ID {user}"
+
         # Find the user in the sign-up list.
         for signup in event['signups']:
-            if signup['user_id'] == user.id:
+            if signup['user_id'] == user:
                 signup['status'] = 'Rejected'
                 # Convert to an INT when fetching the message object
                 message = await interaction.channel.fetch_message(int(message_id))
                 await self.update_event_embed(message, event)
-                await interaction.response.send_message(f"Rejected {signup['user_name']}'s sign-up.", ephemeral=True)
+                with open('warhammer_events.json', 'w') as f:
+                    json.dump(self.events, f, indent=4)
+                await interaction.response.send_message(f"Rejected {user_display_name}'s sign-up.", ephemeral=True)
                 return
 
-        await interaction.response.send_message(f"{user.display_name} is not in the sign-up list.", ephemeral=True)
+        await interaction.response.send_message(f"{user_display_name} is not in the sign-up list.", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
