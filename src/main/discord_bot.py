@@ -360,6 +360,9 @@ async def on_message_edit(before, after):
     """If a message gets edited the bot can announce that someone has changed their message
     :param before: The message object before changes
     :param after: The message object after changes"""
+    # This is weird but bot sending PMs seems to trigger this and will then not have a guild on the before object as its a PM
+    if before.guild is None:
+        return
     guild = bot.confs[str(before.guild.id)]
     if not guild.get('logChannel') or str(before.channel.id) in guild.get('ignoredLogChannels', []):
         return
