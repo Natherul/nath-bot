@@ -1,7 +1,7 @@
 import discord
 from discord import Emoji
 from discord.ext import commands, tasks
-from discord.ui import View
+from discord.ui import View, Modal, TextInput
 from discord import app_commands
 from typing import Literal
 import json
@@ -78,6 +78,76 @@ class MemberOrIdTransformer(app_commands.Transformer):
         return []
 
 
+class CharacterNameModal(Modal):
+    """Modal dialog for entering character name"""
+    def __init__(self, career_id: str, event_dict: dict, cog_instance: commands.Cog, existing_name: str = None):
+        super().__init__(title=f"Sign up as {CAREERS[career_id]['name']}")
+        self.career_id = career_id
+        self.events = event_dict
+        self.cog_instance = cog_instance
+        
+        # Add text input for character name
+        self.character_name = TextInput(
+            label="Character Name",
+            placeholder="Enter your character name...",
+            required=True,
+            max_length=50,
+            default=existing_name
+        )
+        self.add_item(self.character_name)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle modal submission"""
+        event_id = str(interaction.message.id)
+        
+        if event_id not in self.events:
+            await interaction.response.send_message(
+                "This event no longer exists.", ephemeral=True
+            )
+            return
+        
+        user = interaction.user
+        event = self.events[event_id]
+        character_name = self.character_name.value.strip()
+        
+        # Check if the user is already signed up
+        found = False
+        for signup in event['signups']:
+            if signup['user_id'] == user.id:
+                found = True
+                # Update existing signup
+                signup['career'] = CAREERS[self.career_id]
+                signup['status'] = 'Pending'
+                signup['icon'] = CAREERS[self.career_id]['icon']
+                signup['character_name'] = character_name
+                break
+        
+        # Add new signup if not found
+        if not found:
+            event['signups'].append({
+                'user_id': user.id,
+                'user_name': user.display_name,
+                'career': CAREERS[self.career_id],
+                'status': 'Pending',
+                'icon': CAREERS[self.career_id]['icon'],
+                'character_name': character_name
+            })
+        
+        # Update the event message
+        await self.cog_instance.update_event_embed(interaction.message, event)
+        
+        # Save to JSON
+        with open('warhammer_events.json', 'w') as f:
+            json.dump(self.events, f, indent=4)
+        
+        # Send confirmation
+        message_part = "signed up" if not found else "updated your signup"
+        await interaction.response.send_message(
+            f"You have {message_part} as **{CAREERS[self.career_id]['name']}** with character name **{character_name}**.",
+            ephemeral=True
+        )
+
+
 class signup_button(discord.ui.Button):
     def __init__(self, label: str, id: str, emoji: Emoji, event_dict: dict, cog_instance: commands.Cog):
         super().__init__(
@@ -91,13 +161,10 @@ class signup_button(discord.ui.Button):
         self.events = event_dict
         self.cog_instance = cog_instance
 
-
-    # This method is called whenever a button is pressed.
     async def callback(self, interaction: discord.Interaction):
         """Callback for when a button is pressed"""
-        # Find the event data from our global dictionary using the message ID.
         event_id = str(interaction.message.id)
-        # Access the events dictionary via the instance attribute
+        
         if event_id not in self.events:
             await interaction.response.send_message(
                 "This event no longer exists.", ephemeral=True
@@ -108,47 +175,29 @@ class signup_button(discord.ui.Button):
         career_id = interaction.data['custom_id']
         event = self.events[event_id]
 
-        # Check if the user is already signed up.
-        found = False
-        removed = False
+        # Check if user is already signed up for this exact career
+        existing_signup = None
         for signup in event['signups']:
             if signup['user_id'] == user.id:
-                found = True
-                if signup['career'] == CAREERS[career_id]:
-                    event['signups'] = [signup for signup in event['signups'] if signup['user_id'] != user.id]
-                    removed = True
-                    break
-                else:
-                    for signup in event['signups']:
-                        if signup['user_id'] == user.id:
-                            signup['career'] = CAREERS[career_id]
-                            signup['status'] = 'Pending'
-                            break
-
-        # Add the user to the sign-up list with a 'pending' status.
-        if not found:
-            event['signups'].append({
-                'user_id': user.id,
-                'user_name': user.display_name,
-                'career': CAREERS[career_id],
-                'status': 'Pending',
-                'icon': CAREERS[career_id]['icon']
-            })
-
-        # Update the event message with the new sign-up list.
-        await self.cog_instance.update_event_embed(interaction.message, event)
-        with open('warhammer_events.json', 'w') as f:
-            json.dump(self.events, f, indent=4)
-
-        # Send an ephemeral message to the user confirming their sign-up.
-        if not removed:
-            message_part = "signed up" if not found else "updated"
+                existing_signup = signup
+                break
+        
+        # If clicking the same career button, remove signup
+        if existing_signup and existing_signup['career']['icon'] == CAREERS[career_id]['icon']:
+            event['signups'] = [s for s in event['signups'] if s['user_id'] != user.id]
+            
+            await self.cog_instance.update_event_embed(interaction.message, event)
+            with open('warhammer_events.json', 'w') as f:
+                json.dump(self.events, f, indent=4)
+            
             await interaction.response.send_message(
-                f"You have {message_part} as a **{CAREERS[career_id]['name']}**.",
-                ephemeral=True
+                "You have removed your signup", ephemeral=True
             )
         else:
-            await interaction.response.send_message("You have removed your signup", ephemeral=True)
+            # Show modal for character name (either new signup or career change)
+            existing_char_name = existing_signup['character_name'] if existing_signup else None
+            modal = CharacterNameModal(career_id, self.events, self.cog_instance, existing_char_name)
+            await interaction.response.send_modal(modal)
 
 
 # A subclass of View that will hold our sign-up buttons.
@@ -156,7 +205,7 @@ class EventView(View):
     def __init__(self, organizer_id: int, events_dict: dict, faction: str, guild: discord.Guild, cog_instance: commands.Cog):
         super().__init__(timeout=None)
         self.organizer_id = organizer_id
-        self.events_dict = events_dict # Store the events dictionary
+        self.events_dict = events_dict
         self.cog_instance = cog_instance
 
         # Add a button for each career in our dictionary.
@@ -172,7 +221,6 @@ def get_career_emoji(guild: discord.Guild, icon: str):
     return discord.utils.get(guild.emojis, name=icon)
 
 
-# Helper function to create/update the embed.
 def create_event_embed(event: dict, guild: discord.Guild):
     """create an embed for an event"""
     embed = discord.Embed(
@@ -181,10 +229,10 @@ def create_event_embed(event: dict, guild: discord.Guild):
         color=discord.Color.blue()
     )
     embed.set_author(name=f"Event by {event['organizer_name']}", icon_url=event['organizer_avatar'])
-    embed.set_footer(text="Click a button below to sign up!")
+    embed.set_footer(text="Click a button below to sign up with your character name!")
     embed.add_field(name="📅 When", value=f"<t:{event['time']}:F>", inline=False)
 
-    # Group sign-ups by status.
+    # Group sign-ups by status
     pending_signups = sorted([s for s in event['signups'] if s['status'] == 'Pending'],
                              key=lambda s: s['career']['archtype'])
     accepted_tank_signups = sorted([s for s in event['signups'] if s['status'] == 'Accepted' and s['career']['archtype'] == 'Tank'],
@@ -196,31 +244,25 @@ def create_event_embed(event: dict, guild: discord.Guild):
     rejected_signups = sorted([s for s in event['signups'] if s['status'] == 'Rejected'],
                               key=lambda s: s['career']['archtype'])
 
-    # Create the fields for the embed.
-    accepted_tank_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}({s['user_id']})** ({s['career']['name']})" for s in accepted_tank_signups
-    ]) or "No one has been accepted yet."
+    # Helper function to format signup text with character name
+    def format_signup(s):
+        char_name = s.get('character_name', 'No name')
+        return f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {char_name} - {s['user_name']}({s['user_id']})** ({s['career']['name']})"
+
+    # Create the fields for the embed
+    accepted_tank_text = "\n".join([format_signup(s) for s in accepted_tank_signups]) or "No one has been accepted yet."
     embed.add_field(name=f"✅ Accepted Tanks ({str(len(accepted_tank_signups))})", value=accepted_tank_text, inline=False)
 
-    accepted_healer_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}({s['user_id']})** ({s['career']['name']})" for s in accepted_healer_signups
-    ]) or "No one has been accepted yet."
+    accepted_healer_text = "\n".join([format_signup(s) for s in accepted_healer_signups]) or "No one has been accepted yet."
     embed.add_field(name=f"✅ Accepted Healers ({str(len(accepted_healer_signups))})", value=accepted_healer_text, inline=False)
 
-    accepted_dps_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}({s['user_id']})** ({s['career']['name']})" for s in accepted_dps_signups
-    ]) or "No one has been accepted yet."
+    accepted_dps_text = "\n".join([format_signup(s) for s in accepted_dps_signups]) or "No one has been accepted yet."
     embed.add_field(name=f"✅ Accepted DPS ({str(len(accepted_dps_signups))})", value=accepted_dps_text, inline=False)
 
-    pending_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}({s['user_id']})** ({s['career']['name']})" for s in pending_signups
-    ]) or "No pending sign-ups."
+    pending_text = "\n".join([format_signup(s) for s in pending_signups]) or "No pending sign-ups."
     embed.add_field(name=f"⏳ Pending ({str(len(pending_signups))})", value=pending_text, inline=False)
 
-    rejected_text = "\n".join([
-        f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {s['user_name']}({s['user_id']})** ({s['career']['name']})" for s in rejected_signups
-    ]) or "No rejected sign-ups."
-    # Only add the rejected field if there are rejected people to keep it clean.
+    rejected_text = "\n".join([format_signup(s) for s in rejected_signups]) or "No rejected sign-ups."
     if rejected_signups:
         embed.add_field(name=f"❌ Rejected ({str(len(rejected_signups))})", value=rejected_text, inline=False)
 
@@ -258,22 +300,17 @@ class WarhammerEvents(commands.Cog):
         except Exception as e:
             logging.exception(f"Error while restoring persistent EventViews: {e}")
 
-    # Helper function to update an existing event message.
     async def update_event_embed(self, message: discord.Message, event: dict):
         """Method to update an existing embed"""
         embed = create_event_embed(event, message.guild)
-        # Only edit the embed, leave the persistent view that is already on the message.
         await message.edit(embed=embed)
-
 
     @commands.Cog.listener()
     async def on_ready(self):
         logging.info(f'Cog {self.qualified_name} is ready.')
         for message_id, event_data in self.events.items():
-            # Get the guild object from the stored guild ID.
             guild = self.bot.get_guild(event_data['guild'])
             if guild:
-                # Create a new EventView instance for the loaded event.
                 view = EventView(
                     organizer_id=event_data['organizer_id'],
                     events_dict=self.events,
@@ -281,16 +318,11 @@ class WarhammerEvents(commands.Cog):
                     guild=guild,
                     cog_instance=self
                 )
-                # Re-register the view with the bot, linking it to the original message ID.
-                # message_id must be an integer here.
                 self.bot.add_view(view, message_id=int(message_id))
-
 
     @tasks.loop(minutes=5)
     async def cleanup_passed_events(self):
         """Checks every 5 minutes for events that have passed and removes them."""
-        # It's important to not modify a dictionary while iterating over it.
-        # So, we'll first find which events to remove and then remove them.
         events_to_remove = []
         current_utc_timestamp = datetime.now(timezone.utc).timestamp()
 
@@ -303,7 +335,6 @@ class WarhammerEvents(commands.Cog):
                 logging.info(f'Removing event {message_id}')
                 del self.events[message_id]
 
-            # Save the updated events list to the JSON file
             with open('warhammer_events.json', 'w') as f:
                 json.dump(self.events, f, indent=4)
 
@@ -311,7 +342,6 @@ class WarhammerEvents(commands.Cog):
     async def before_cleanup(self):
         """Waits until the bot is ready before starting the loop."""
         await self.bot.wait_until_ready()
-
 
     @tasks.loop(minutes=10)
     async def alert_event(self):
@@ -329,21 +359,19 @@ class WarhammerEvents(commands.Cog):
                 formatted_mentions = " ".join([f"<@{user_id}>" for user_id in accepted_users])
                 guild = self.bot.get_guild(event['guild'])
                 if not guild:
-                    continue  # Make sure the guild exists
+                    continue
 
                 channel = guild.get_channel(event['channel'])
                 if not channel:
-                    continue  # Make sure the channel exists
+                    continue
 
                 await channel.send(f"{formatted_mentions} The event {event['title']} is starting in less than 30 minutes!")
                 event['has_announced'] = True
-
 
     @alert_event.before_loop
     async def before_alert(self):
         """waits until bot is read before starting the loop"""
         await self.bot.wait_until_ready()
-
 
     @discord.app_commands.command(name="cancel_ror_event", description="Cancel an event")
     async def remove_event_cancellation(self, interaction: discord.Interaction, message_id: str):
@@ -362,15 +390,12 @@ class WarhammerEvents(commands.Cog):
             return
 
         await interaction.response.defer()
-        # Convert to int ONLY for the API call
         await (await interaction.channel.fetch_message(int(message_id))).delete()
         title = event['title']
-        # Use the string key to pop from the dictionary
         self.events.pop(message_id)
         with open('warhammer_events.json', 'w') as f:
             json.dump(self.events, f, indent=4)
         await interaction.followup.send(f"Event cancelled: {title}", ephemeral=True)
-
 
     @discord.app_commands.command(name="create_ror_event", description="Create a new Warhammer Online event.")
     @discord.app_commands.describe(title="The name of the event", description="Description for the event", faction="What faction the event is for", date="Date for the event (YYYY-MM-DD)", time="Time of event (HH:MM)", timezone="Your timezone (I.E. 'Europe/Stockholm')")
@@ -384,37 +409,24 @@ class WarhammerEvents(commands.Cog):
         time: str,
         timezone: str
     ):
-        """
-        Creates a new Warhammer Online event with an interactive sign-up embed.
-        """
+        """Creates a new Warhammer Online event with an interactive sign-up embed."""
         try:
-            # 1. Combine date and time strings from user input
             naive_datetime_str = f"{date} {time}"
-
-            # 2. Create a "naive" datetime object (no timezone info yet)
             naive_dt = datetime.strptime(naive_datetime_str, "%Y-%m-%d %H:%M")
-
-            # 3. Find the user's timezone and make the datetime "aware"
             user_tz = ZoneInfo(timezone)
             aware_dt = naive_dt.replace(tzinfo=user_tz)
-
-            # 4. Get the Unix timestamp (seconds since 1970-01-01), which is what Discord needs
             timestamp = int(aware_dt.timestamp())
-
         except (ValueError, ZoneInfoNotFoundError) as e:
-            # Handle errors if the user provides a bad date, time, or timezone
             error_message = ""
             if isinstance(e, ValueError):
                 error_message = "❌ **Invalid Format!** Please use `YYYY-MM-DD` for the date and `HH:MM` for the time."
             elif isinstance(e, ZoneInfoNotFoundError):
                 error_message = f"❌ **Invalid Timezone!** I couldn't find the timezone `{timezone}`. Please use a valid TZ identifier like 'Europe/London' or 'America/Los_Angeles'."
-
             await interaction.response.send_message(error_message, ephemeral=True)
             return
 
         organizer = interaction.user
 
-        # Create the initial event data structure.
         event_data = {
             'title': title,
             'description': description,
@@ -429,23 +441,15 @@ class WarhammerEvents(commands.Cog):
             'has_announced': False
         }
 
-        # Create the initial embed and view.
         embed = create_event_embed(event_data, interaction.guild)
-        
-        # Pass the global `events` dictionary to the view.
         view = EventView(organizer.id, self.events, faction, interaction.guild, self)
 
-        # Defer the response first to avoid the 3-second timeout.
         await interaction.response.defer()
-        
-        # Now send the message as a follow-up.
         sent_message = await interaction.followup.send(embed=embed, view=view)
         
-        # Store the event data using the message ID as the key.
         self.events[str(sent_message.id)] = event_data
         with open('warhammer_events.json', 'w') as file:
             json.dump(self.events, file, indent=4)
-
 
     @discord.app_commands.command(name="accept_ror_signup", description="Accept a sign-up for an event.")
     async def accept_signup(
@@ -454,9 +458,7 @@ class WarhammerEvents(commands.Cog):
         user: app_commands.Transform[int, MemberOrIdTransformer],
         message_id: str
     ):
-        """
-        Accepts a user's sign-up for a specified event.
-        """
+        """Accepts a user's sign-up for a specified event."""
         if not message_id.isdigit():
             await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
             return
@@ -467,24 +469,19 @@ class WarhammerEvents(commands.Cog):
 
         event = self.events[message_id]
 
-        # Check if the command user is the event organizer.
         if interaction.user.id != event['organizer_id']:
             await interaction.response.send_message("You are not the organizer of this event.", ephemeral=True)
             return
 
-        # user is now just an int (user ID)
-        # Try to fetch the member to get their current display name
         try:
             member = await interaction.guild.fetch_member(user)
             user_display_name = member.display_name
         except discord.NotFound:
             user_display_name = f"User ID {user}"
 
-        # Find the user in the sign-up list.
         for signup in event['signups']:
             if signup['user_id'] == user:
                 signup['status'] = 'Accepted'
-                # Convert to an INT when fetching the message object
                 message = await interaction.channel.fetch_message(int(message_id))
                 await self.update_event_embed(message, event)
                 with open('warhammer_events.json', 'w') as f:
@@ -501,9 +498,7 @@ class WarhammerEvents(commands.Cog):
         user: app_commands.Transform[int, MemberOrIdTransformer],
         message_id: str
     ):
-        """
-        Rejects a user's sign-up for a specified event.
-        """
+        """Rejects a user's sign-up for a specified event."""
         if not message_id.isdigit():
             await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
             return
@@ -514,24 +509,19 @@ class WarhammerEvents(commands.Cog):
 
         event = self.events[message_id]
 
-        # Check if the command user is the event organizer.
         if interaction.user.id != event['organizer_id']:
             await interaction.response.send_message("You are not the organizer of this event.", ephemeral=True)
             return
 
-        # user is now just an int (user ID)
-        # Try to fetch the member to get their current display name
         try:
             member = await interaction.guild.fetch_member(user)
             user_display_name = member.display_name
         except discord.NotFound:
             user_display_name = f"User ID {user}"
 
-        # Find the user in the sign-up list.
         for signup in event['signups']:
             if signup['user_id'] == user:
                 signup['status'] = 'Rejected'
-                # Convert to an INT when fetching the message object
                 message = await interaction.channel.fetch_message(int(message_id))
                 await self.update_event_embed(message, event)
                 with open('warhammer_events.json', 'w') as f:
