@@ -122,6 +122,7 @@ class signup_button(discord.ui.Button):
                     for signup in event['signups']:
                         if signup['user_id'] == user.id:
                             signup['career'] = CAREERS[career_id]
+                            signup['status'] = 'Pending'
                             break
 
         # Add the user to the sign-up list with a 'pending' status.
