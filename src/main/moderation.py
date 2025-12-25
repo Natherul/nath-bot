@@ -73,41 +73,13 @@ class Moderation(commands.Cog):
 
     @app_commands.command(name="add", description="Command group to add pings or events")
     @app_commands.describe(type="What to add", args="Event parameters")
-    async def add(self, interaction: discord.Interaction, type: Literal['FortPing', 'CityPing', 'Event', 'Channel'], args: Optional[str]):
+    async def add(self, interaction: discord.Interaction, type: Literal['Channel'], args: Optional[str]):
         """Command to add something into configuration
         :param interaction: The interaction that triggered the command
         :param type: The type to add
         :param args: Optional (may not be optional depending on type) parameters for the add"""
         this_guild = self.config.get(str(interaction.guild.id), {})
-        if "FortPing" == type:
-            if this_guild.get('fortPing') != '0':
-                try:
-                    role = get(interaction.guild.roles, id=int(this_guild['fortPing']))
-                    await interaction.guild.get_member(interaction.user.id).add_roles(role)
-                    await interaction.response.send_message("Role added")
-                    if this_guild.get('logChannel') != '0':
-                        await self.bot.get_channel(int(this_guild["logChannel"])).send(
-                            "Added " + str(interaction.user.id) + " / " + str(interaction.user.display_name) + " to FortPings")
-                except discord.Forbidden:
-                    await interaction.guild.owner.send(
-                        "Something went wrong when attempting to add a role or when trying to post to the log channel")
-                except discord.HTTPException:
-                    self.logger.error(HTTP_ERROR)
-        elif "CityPing" == type:
-            if this_guild.get('cityPing') != '0':
-                try:
-                    role = get(interaction.guild.roles, id=int(this_guild['cityPing']))
-                    await interaction.guild.get_member(interaction.user.id).add_roles(role)
-                    await interaction.response.send_message("Role added")
-                    if this_guild.get('logChannel') != '0':
-                        await self.bot.get_channel(int(this_guild["logChannel"])).send(
-                            "Added " + str(interaction.user.id) + " / " + str(interaction.user.display_name) + " to CityPings")
-                except discord.Forbidden:
-                    await interaction.guild.owner.send(
-                        "Something went wrong when attempting to add a role or when trying to post to the log channel")
-                except discord.HTTPException:
-                    self.logger.error(HTTP_ERROR)
-        elif "Channel" == type:
+        if "Channel" == type:
             if interaction.guild.get_member(interaction.user.id).voice is not None:
                 try:
                     channel_name = str(uuid.uuid4().hex) if args is None else args
@@ -127,48 +99,6 @@ class Moderation(commands.Cog):
             else:
                 await interaction.response.send_message(
                     "You need to be connected to a channel before issuing this command. The bot will move you to the channel when its created and remove the channel once its empty.")
-
-
-    @app_commands.command(name="remove", description="Command group to remove pings or events")
-    @app_commands.describe(type="What to remove", args="Event parameters")
-    async def remove(self, interaction: discord.Interaction, type: Literal['FortPing', 'CityPing', 'Event'], args: Optional[str]):
-        """Command to remove something from configuration
-        :param interaction: The interaction that triggered this command
-        :param type: The type to remove
-        :param args: Optional (may not be optional depending on type) identifier for the removal"""
-        this_guild = self.config.get(str(interaction.guild.id), {})
-        if "FortPing" == type:
-            if this_guild.get('fortPing') != '0':
-                try:
-                    role = get(interaction.guild.roles, id=int(this_guild['fortPing']))
-                    await interaction.guild.get_member(interaction.user.id).remove_roles(role)
-                    await interaction.response.send_message("Role removed")
-                    if this_guild.get('logChannel') != '0':
-                        await self.bot.get_channel(int(this_guild["logChannel"])).send(
-                            "Removed " + str(interaction.user.id) + " / " + str(
-                                interaction.user.display_name) + " from FortPings")
-                except discord.Forbidden:
-                    await interaction.guild.owner.send(
-                        "Something went wrong when either removing a permission from a user or when trying to post it in the log channel")
-                except discord.HTTPException:
-                    self.logger.error(HTTP_ERROR)
-        elif "CityPing" == type:
-            if this_guild.get('cityPing') != '0':
-                try:
-                    role = get(interaction.guild.roles, id=int(this_guild['cityPing']))
-                    await interaction.guild.get_member(interaction.user.id).remove_roles(role)
-                    await interaction.response.send_message("Role removed")
-                    if this_guild.get('logChannel') != '0':
-                        await self.bot.get_channel(int(this_guild["logChannel"])).send(
-                            "Removed " + str(interaction.user.id) + " / " + str(
-                            interaction.user.display_name) + " from CityPings")
-                except discord.Forbidden:
-                    await interaction.guild.owner.send(
-                        "Something went wrong when either removing a permission from a user or when trying to post it in the log channel")
-                except discord.HTTPException:
-                    self.logger.error(HTTP_ERROR)
-        else:
-            await interaction.response.send_message("No such remove option")
 
 
     @app_commands.command(name="announce", description="Announce things through all servers the bot is present on")
@@ -350,22 +280,6 @@ class Moderation(commands.Cog):
             await interaction.guild.owner.send("Nath-bot is enabled on your server but does not have the permissions to purge messages though moderation group has been set.")
         except discord.HTTPException:
             self.logger.error(HTTP_ERROR)
-
-
-    @app_commands.command(name="citystat", description="Command to return the stats for cities in RoR")
-    async def citystat(self, interaction: discord.Interaction):
-        """Command to get stats about city contests in RoR
-        :param interaction: The interaction that triggered this command"""
-        from discord import File # File must be imported from discord if used like this
-        await interaction.response.send_message("Current gathered stats for cities", file=File('citystat.csv'))
-
-
-    @app_commands.command(name="fortstat", description="Command to return the stats for forts in RoR")
-    async def fortstat(self, interaction: discord.Interaction):
-        """Command to get stats about fort wins in RoR
-        :param interaction: The interaction that triggered this command"""
-        from discord import File
-        await interaction.response.send_message("Current gathered stats for forts", file=File('fortstat.csv'))
 
 
     @app_commands.command(name="debug", description="Debug command to print information that Nath will want to troubleshoot issues")

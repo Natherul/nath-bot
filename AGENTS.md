@@ -19,15 +19,12 @@ The main bot entry point that initializes the Discord client, sets up intents, a
 ### `src/main/moderation.py`
 Moderation commands and utilities for server management:
 - `/help` - Display available commands
-- `/add` - Add pings or events (FortPing, CityPing, Event, Channel)
-- `/remove` - Remove pings or events (FortPing, CityPing, Event)
+- `/add` - Add pings or events (Channel)
 - `/announce` - Announce messages across servers (admin only)
 - `/configure` - Configure bot settings for the server
 - `/kick` - Kick members from server
 - `/ban` - Ban members from server
 - `/purge` - Purge messages from channel
-- `/citystat` - Return city statistics
-- `/fortstat` - Return fort statistics
 - `/debug` - Debug command for bot information (admin only)
 - `/editannounce` - Edit previous announcements (admin only)
 
@@ -43,7 +40,7 @@ Warhammer Online event management system:
 - Career-based event organization (Order/Destruction factions)
 
 ### `src/main/tue_specifics.py`
-TUE (The Unofficial Empire) specific features:
+TUE (The Unstable Equation) specific features:
 - Guild member checking using RoR API
 - Role management for guild members
 - Officer and member tracking
