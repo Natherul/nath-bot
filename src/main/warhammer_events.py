@@ -49,8 +49,8 @@ CAREERS = {
 
 class MemberOrIdTransformer(app_commands.Transformer):
     """Transformer that accepts either a Member mention or a user ID string"""
-    
-    async def transform(self, interaction: discord.Interaction, value) -> int:
+
+    async def transform(self, interaction: discord.Interaction, value: str) -> int:
         """
         Transforms the input to a user ID.
         Accepts: @mentions (Member objects), user IDs as strings, or raw IDs
@@ -58,7 +58,7 @@ class MemberOrIdTransformer(app_commands.Transformer):
         # If Discord already resolved it to a Member object, just return the ID
         if isinstance(value, discord.Member):
             return value.id
-        
+
         # If it's a string, try to parse it
         if isinstance(value, str):
             # Try to extract user ID from mention format <@123456789>
@@ -66,16 +66,17 @@ class MemberOrIdTransformer(app_commands.Transformer):
                 user_id_str = value.strip('<@!>')
                 if user_id_str.isdigit():
                     return int(user_id_str)
-            
+
             # Try to parse as direct ID
             if value.isdigit():
                 return int(value)
-        
+
         raise app_commands.AppCommandError("Invalid user. Please mention a user or provide their ID.")
-    
-    async def autocomplete(self, interaction: discord.Interaction, value: str):
-        """Optional: provide autocomplete suggestions"""
-        return []
+
+    @property
+    def type(self) -> discord.AppCommandOptionType:
+        """Specify that this accepts string input for proper autocomplete"""
+        return discord.AppCommandOptionType.string
 
 
 class CharacterNameModal(Modal):
@@ -451,12 +452,17 @@ class WarhammerEvents(commands.Cog):
         with open('warhammer_events.json', 'w') as file:
             json.dump(self.events, file, indent=4)
 
+
     @discord.app_commands.command(name="accept_ror_signup", description="Accept a sign-up for an event.")
+    @discord.app_commands.describe(
+        user="Select a user from the list or type their user ID",
+        message_id="The message ID of the event"
+    )
     async def accept_signup(
-        self,
-        interaction: discord.Interaction,
-        user: app_commands.Transform[int, MemberOrIdTransformer],
-        message_id: str
+            self,
+            interaction: discord.Interaction,
+            user: str,  # Accept as string to handle both cases
+            message_id: str
     ):
         """Accepts a user's sign-up for a specified event."""
         if not message_id.isdigit():
@@ -473,14 +479,31 @@ class WarhammerEvents(commands.Cog):
             await interaction.response.send_message("You are not the organizer of this event.", ephemeral=True)
             return
 
+        # Parse the user input - could be a mention or an ID
+        user_id = None
+        if user.startswith('<@') and user.endswith('>'):
+            # It's a mention format
+            user_id_str = user.strip('<@!>')
+            if user_id_str.isdigit():
+                user_id = int(user_id_str)
+        elif user.isdigit():
+            # It's a direct ID
+            user_id = int(user)
+
+        if user_id is None:
+            await interaction.response.send_message("Invalid user format. Please mention a user or provide their ID.",
+                                                    ephemeral=True)
+            return
+
+        # Try to fetch the member for display name
         try:
-            member = await interaction.guild.fetch_member(user)
+            member = await interaction.guild.fetch_member(user_id)
             user_display_name = member.display_name
         except discord.NotFound:
-            user_display_name = f"User ID {user}"
+            user_display_name = f"User ID {user_id}"
 
         for signup in event['signups']:
-            if signup['user_id'] == user:
+            if signup['user_id'] == user_id:
                 signup['status'] = 'Accepted'
                 message = await interaction.channel.fetch_message(int(message_id))
                 await self.update_event_embed(message, event)
@@ -491,12 +514,17 @@ class WarhammerEvents(commands.Cog):
 
         await interaction.response.send_message(f"{user_display_name} is not in the sign-up list.", ephemeral=True)
 
+
     @discord.app_commands.command(name="reject_ror_signup", description="Reject a sign-up for an event.")
+    @discord.app_commands.describe(
+        user="Select a user from the list or type their user ID",
+        message_id="The message ID of the event"
+    )
     async def reject_signup(
-        self,
-        interaction: discord.Interaction,
-        user: app_commands.Transform[int, MemberOrIdTransformer],
-        message_id: str
+            self,
+            interaction: discord.Interaction,
+            user: str,  # Accept as string to handle both cases
+            message_id: str
     ):
         """Rejects a user's sign-up for a specified event."""
         if not message_id.isdigit():
@@ -513,14 +541,31 @@ class WarhammerEvents(commands.Cog):
             await interaction.response.send_message("You are not the organizer of this event.", ephemeral=True)
             return
 
+        # Parse the user input - could be a mention or an ID
+        user_id = None
+        if user.startswith('<@') and user.endswith('>'):
+            # It's a mention format
+            user_id_str = user.strip('<@!>')
+            if user_id_str.isdigit():
+                user_id = int(user_id_str)
+        elif user.isdigit():
+            # It's a direct ID
+            user_id = int(user)
+
+        if user_id is None:
+            await interaction.response.send_message("Invalid user format. Please mention a user or provide their ID.",
+                                                    ephemeral=True)
+            return
+
+        # Try to fetch the member for display name
         try:
-            member = await interaction.guild.fetch_member(user)
+            member = await interaction.guild.fetch_member(user_id)
             user_display_name = member.display_name
         except discord.NotFound:
-            user_display_name = f"User ID {user}"
+            user_display_name = f"User ID {user_id}"
 
         for signup in event['signups']:
-            if signup['user_id'] == user:
+            if signup['user_id'] == user_id:
                 signup['status'] = 'Rejected'
                 message = await interaction.channel.fetch_message(int(message_id))
                 await self.update_event_embed(message, event)
@@ -530,6 +575,30 @@ class WarhammerEvents(commands.Cog):
                 return
 
         await interaction.response.send_message(f"{user_display_name} is not in the sign-up list.", ephemeral=True)
+
+
+    # Add this autocomplete function to the WarhammerEvents class
+    @accept_signup.autocomplete('user')
+    @reject_signup.autocomplete('user')
+    async def user_autocomplete(
+            self,
+            interaction: discord.Interaction,
+            current: str,
+    ) -> list[app_commands.Choice[str]]:
+        """Provide autocomplete suggestions for users"""
+        # Get all members in the guild
+        members = interaction.guild.members
+
+        # Filter members based on what the user is typing
+        filtered = [
+            member for member in members
+            if current.lower() in member.display_name.lower() or current.lower() in member.name.lower()
+        ][:25]  # Discord limits to 25 choices
+
+        return [
+            app_commands.Choice(name=member.display_name, value=str(member.id))
+            for member in filtered
+        ]
 
 
 async def setup(bot: commands.Bot):
