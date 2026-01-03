@@ -369,8 +369,8 @@ class WarhammerEvents(commands.Cog):
                 await channel.send(f"{formatted_mentions} The event {event['title']} is starting in less than 30 minutes!")
                 event['has_announced'] = True
                 try:
-                    hoster = await guild.fetch_member(event['organizer_id'])  # Added await
-                    accepted_characters = [s['character_name'] for s in event['signups'] if s['status'] == 'Accepted']
+                    hoster = await guild.fetch_member(event['organizer_id'])
+                    accepted_characters = [s['character_name'] for s in event['signups'] if s['status'] == 'Accepted' and s['user_id'] != event['organizer_id']]
 
                     # Format with proper newlines and code block
                     invite_commands = "\n/invite ".join(accepted_characters)
