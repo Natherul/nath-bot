@@ -1,5 +1,5 @@
 import discord
-from discord import Emoji
+from discord import Emoji, NotFound, HTTPException
 from discord.ext import commands, tasks
 from discord.ui import View, Modal, TextInput
 from discord import app_commands
@@ -344,7 +344,7 @@ class WarhammerEvents(commands.Cog):
         """Waits until the bot is ready before starting the loop."""
         await self.bot.wait_until_ready()
 
-    @tasks.loop(minutes=10)
+    @tasks.loop(minutes=1)
     async def alert_event(self):
         """Task to alert accepted people that an event is about to start"""
         current_utc_timestamp = datetime.now(timezone.utc)
@@ -368,6 +368,17 @@ class WarhammerEvents(commands.Cog):
 
                 await channel.send(f"{formatted_mentions} The event {event['title']} is starting in less than 30 minutes!")
                 event['has_announced'] = True
+                try:
+                    hoster = await guild.fetch_member(event['organizer_id'])  # Added await
+                    accepted_characters = [s['character_name'] for s in event['signups'] if s['status'] == 'Accepted']
+
+                    # Format with proper newlines and code block
+                    invite_commands = "\n/invite ".join(accepted_characters)
+                    message_text = f"Here is a little helpful message to do the invites:\n```\n/invite {invite_commands}\n```"
+
+                    await hoster.send(message_text)
+                except (NotFound, HTTPException):
+                    logging.error("Something went wrong when attempting to get organizer member")
 
     @alert_event.before_loop
     async def before_alert(self):
