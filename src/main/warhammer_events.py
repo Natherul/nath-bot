@@ -9,6 +9,7 @@ import os
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import logging
+import io
 
 
 # Get a logger for this specific module
@@ -45,6 +46,104 @@ CAREERS = {
     'sorcerer': {'name': 'Sorcerer', 'icon': 'sorc', 'faction': 'Destruction', 'archtype': 'DPS', 'race': 'dark-elf'},
     'witch_elf': {'name': 'Witch Elf', 'icon': 'we', 'faction': 'Destruction', 'archtype': 'DPS', 'race': 'dark-elf'},
 }
+
+
+def generate_ics_file(event: dict) -> io.BytesIO:
+    """Generate an iCalendar (.ics) file for an event"""
+
+    # Convert Unix timestamp to datetime
+    event_dt = datetime.fromtimestamp(event['time'], tz=timezone.utc)
+
+    # Format datetime for iCalendar (format: YYYYMMDDTHHMMSSZ)
+    dtstart = event_dt.strftime('%Y%m%dT%H%M%SZ')
+
+    # Calculate end time (assume 2 hours duration)
+    # TODO: make this configurable
+    end_dt = datetime.fromtimestamp(event['time'] + 7200, tz=timezone.utc)
+    dtend = end_dt.strftime('%Y%m%dT%H%M%SZ')
+
+    # Create timestamp for when the file was created
+    dtstamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+
+    # Create a unique identifier for the event
+    uid = f"warhammer-event-{event['time']}-{event['organizer_id']}@discord"
+
+    # Build the iCalendar content
+    ics_content = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Warhammer Online Events//Discord Bot//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{dtstamp}",
+        f"DTSTART:{dtstart}",
+        f"DTEND:{dtend}",
+        f"SUMMARY:{event['title']}",
+        f"DESCRIPTION:{event['description'].replace(',', '\\,')}",
+        f"ORGANIZER;CN={event['organizer_name']}:invalid:nomail",
+        f"LOCATION:Warhammer Online - {event['faction']}",
+        "STATUS:CONFIRMED",
+        "SEQUENCE:0",
+        "BEGIN:VALARM",
+        "TRIGGER:-PT30M",
+        "ACTION:DISPLAY",
+        "DESCRIPTION:Event starting in 30 minutes",
+        "END:VALARM",
+        "END:VEVENT",
+        "END:VCALENDAR"
+    ]
+
+    # Join with CRLF as per iCalendar specification
+    ics_text = "\r\n".join(ics_content)
+
+    # Create a BytesIO object to send as a file
+    ics_file = io.BytesIO(ics_text.encode('utf-8'))
+    ics_file.seek(0)
+
+    return ics_file
+
+
+class CalendarButton(discord.ui.Button):
+    """Button to download calendar file"""
+
+    def __init__(self, event_dict: dict):
+        super().__init__(
+            label="Add to Calendar",
+            style=discord.ButtonStyle.primary,
+            emoji="📅",
+            custom_id="download_calendar",
+            row=3  # Place it on a separate row
+        )
+        self.events = event_dict
+
+    async def callback(self, interaction: discord.Interaction):
+        """Handle calendar download request"""
+        event_id = str(interaction.message.id)
+
+        if event_id not in self.events:
+            await interaction.response.send_message(
+                "This event no longer exists.",
+                ephemeral=True
+            )
+            return
+
+        event = self.events[event_id]
+
+        # Generate the .ics file
+        ics_file = generate_ics_file(event)
+
+        # Create a safe filename
+        safe_title = "".join(c for c in event['title'] if c.isalnum() or c in (' ', '-', '_')).strip()
+        filename = f"{safe_title}.ics"
+
+        # Send the file to the user
+        await interaction.response.send_message(
+            "Here's your calendar file! Import it into your calendar app.",
+            file=discord.File(ics_file, filename=filename),
+            ephemeral=True
+        )
 
 
 class MemberOrIdTransformer(app_commands.Transformer):
@@ -215,6 +314,8 @@ class EventView(View):
                 continue
             custom_emoji = discord.utils.get(guild.emojis, name=data['icon'])
             self.add_item(signup_button(data['name'], career_id, custom_emoji, self.events_dict, self.cog_instance))
+
+        self.add_item(CalendarButton(self.events_dict))
 
 
 def get_career_emoji(guild: discord.Guild, icon: str):
