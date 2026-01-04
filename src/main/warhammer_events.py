@@ -864,7 +864,7 @@ def create_event_embed(event: dict, guild: discord.Guild):
     # Helper function to format signup text with character name
     def format_signup(s):
         char_name = s.get('character_name', 'No name')
-        return f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {char_name} - {s['user_name']}({s['user_id']})** ({s['career']['name']})"
+        return f"**{get_career_emoji(guild, s['career']['icon'])} {s['career']['archtype']}: {char_name} - {s['user_name']}** ({s['career']['name']})"
 
     # Create the fields for the embed
     accepted_tank_text = "\n".join([format_signup(s) for s in accepted_tank_signups]) or "No one has been accepted yet."
