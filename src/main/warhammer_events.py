@@ -8,6 +8,7 @@ import os
 from datetime import datetime, timezone, timedelta
 import logging
 import io
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 # Get a logger for this specific module
@@ -202,8 +203,6 @@ class EventCreationStep2Modal(Modal):
 
         # Parse and validate the datetime
         try:
-            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-
             naive_datetime_str = f"{date} {time}"
             naive_dt = datetime.strptime(naive_datetime_str, "%Y-%m-%d %H:%M")
             user_tz = ZoneInfo(timezone)
