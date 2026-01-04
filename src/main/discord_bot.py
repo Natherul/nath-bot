@@ -393,6 +393,8 @@ async def on_message_edit(before, after):
 async def on_message_delete(message):
     """If a message gets deleted the bot can find it and see if it was done by a moderator or its author
     :param message: The message that got deleted"""
+    if message.author.id == bot.user.id:
+        return
     guild = bot.confs[str(message.guild.id)]
     if guild['logChannel'] == 0 or bot.lastDeletedMessage == message.content or str(message.channel.id) in [str(x) for x in guild.get('ignoredLogChannels', [])]:
         return
