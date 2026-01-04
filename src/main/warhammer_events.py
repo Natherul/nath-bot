@@ -123,14 +123,19 @@ class NextStepButtonView(View):
 
     async def open_modal(self, interaction: discord.Interaction):
         await interaction.response.send_modal(self.next_modal)
+        # Store reference to this interaction's message so the modal can edit it later
+        self.next_modal.next_button_interaction_message = interaction.message
 
     async def on_timeout(self):
         """Called when the view times out (5 minutes)"""
         # Disable all buttons when timeout occurs
-        for item in self.children:
-            item.disabled = True
-        if self.message:
-            await self.message.edit(view=self)
+        try:
+            for item in self.children:
+                item.disabled = True
+            if self.message:
+                await self.message.edit(view=self)
+        except NotFound: # We have probably removed or edited the message in this case
+            pass
 
 
 class EventCreationStep2Modal(Modal):
@@ -142,6 +147,7 @@ class EventCreationStep2Modal(Modal):
         self.event_title = title
         self.event_description = description
         self.faction = faction
+        self.next_button_interaction_message = None
 
         self.date_input = TextInput(
             label="Date (YYYY-MM-DD)",
@@ -238,6 +244,8 @@ class EventCreationStep2Modal(Modal):
             'has_announced': False
         }
 
+        await interaction.response.defer(ephemeral=True)
+
         embed = create_event_embed(event_data, guild)
         view = EventView(
             organizer.id,
@@ -255,11 +263,8 @@ class EventCreationStep2Modal(Modal):
         with open('warhammer_events.json', 'w') as file:
             json.dump(self.cog_instance.events, file, indent=4)
 
-        # Confirm to the user
-        await interaction.response.send_message(
-            f"✅ Event **{self.event_title}** created successfully!\n📅 {date} at {time} ({timezone})",
-            ephemeral=True
-        )
+        # Delete the deferred response (the invisible acknowledgment)
+        await interaction.delete_original_response()
 
 
 # ============================================
@@ -332,9 +337,10 @@ class CancelEventView(View):
         with open('warhammer_events.json', 'w') as f:
             json.dump(self.events, f, indent=4)
 
-        await interaction.response.send_message(
-            f"✅ Event cancelled: **{title}**",
-            ephemeral=True
+        # Edit the message to show completion (instead of send_message)
+        await interaction.response.edit_message(
+            content=f"✅ Event cancelled: **{title}**",
+            view=None
         )
 
 
@@ -392,9 +398,9 @@ class AcceptSignupView(View):
         possible_candidates = [s for s in event['signups'] if s['status'] == 'Pending' or s['status'] == 'Rejected']
 
         if not possible_candidates:
-            await interaction.response.send_message(
-                "No pending signups for this event.",
-                ephemeral=True
+            await interaction.response.edit_message(
+                content="No pending signups for this event.",
+                view=None
             )
             return
 
@@ -412,7 +418,7 @@ class AcceptSignupView(View):
         member_select = Select(
             placeholder="Select member to accept",
             options=member_options,
-            row=1
+            row=0
         )
         member_select.callback = self.accept_callback
 
@@ -423,10 +429,10 @@ class AcceptSignupView(View):
         new_view.selected_event_id = self.selected_event_id
         new_view.cog_instance = self.cog_instance
 
-        await interaction.response.send_message(
-            "Now select the member to accept:",
-            view=new_view,
-            ephemeral=True
+        # Edit the existing message
+        await interaction.response.edit_message(
+            content="Now select the member to accept:",
+            view=new_view
         )
 
     async def accept_callback(self, interaction: discord.Interaction):
@@ -447,11 +453,11 @@ class AcceptSignupView(View):
         with open('warhammer_events.json', 'w') as f:
             json.dump(self.events, f, indent=4)
 
-        await interaction.response.send_message(
-            "✅ Signup accepted!",
-            ephemeral=True
+        # Edit message to show completion
+        await interaction.response.edit_message(
+            content="✅ Signup accepted!",
+            view=None
         )
-
 
 class RejectSignupView(View):
     """View for selecting event and member to reject"""
@@ -503,9 +509,9 @@ class RejectSignupView(View):
         possible_candidates = [s for s in event['signups'] if s['status'] == 'Pending' or s['status'] == 'Accepted']
 
         if not possible_candidates:
-            await interaction.response.send_message(
-                "No pending signups for this event.",
-                ephemeral=True
+            await interaction.response.edit_message(
+                content="No pending signups for this event.",
+                view=None
             )
             return
 
@@ -523,7 +529,7 @@ class RejectSignupView(View):
         member_select = Select(
             placeholder="Select member to reject",
             options=member_options,
-            row=1
+            row=0
         )
         member_select.callback = self.reject_callback
 
@@ -534,10 +540,10 @@ class RejectSignupView(View):
         new_view.selected_event_id = self.selected_event_id
         new_view.cog_instance = self.cog_instance
 
-        await interaction.response.send_message(
-            "Now select the member to reject:",
-            view=new_view,
-            ephemeral=True
+        # Edit the existing message
+        await interaction.response.edit_message(
+            content="Now select the member to reject:",
+            view=new_view
         )
 
     async def reject_callback(self, interaction: discord.Interaction):
@@ -558,11 +564,11 @@ class RejectSignupView(View):
         with open('warhammer_events.json', 'w') as f:
             json.dump(self.events, f, indent=4)
 
-        await interaction.response.send_message(
-            "✅ Signup rejected!",
-            ephemeral=True
+        # Edit message to show completion
+        await interaction.response.edit_message(
+            content="✅ Signup rejected!",
+            view=None
         )
-
 
 def generate_ics_file(event: dict) -> io.BytesIO:
     """Generate an iCalendar (.ics) file for an event"""
