@@ -1,13 +1,11 @@
 import discord
 from discord import Emoji, NotFound, HTTPException
 from discord.ext import commands, tasks
-from discord.ui import View, Modal, TextInput
+from discord.ui import View, Modal, TextInput, Select
 from discord import app_commands
-from typing import Literal
 import json
 import os
 from datetime import datetime, timezone, timedelta
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import logging
 import io
 
@@ -48,6 +46,524 @@ CAREERS = {
 }
 
 
+class EventCreationStep1Modal(Modal):
+    """Step 1: Title, Description, Faction"""
+
+    def __init__(self, cog_instance):
+        super().__init__(title="Create Event - Event Details", timeout=300)
+        self.cog_instance = cog_instance
+
+        self.title_input = TextInput(
+            label="Event Title",
+            placeholder="e.g., What you are doing",
+            required=True,
+            max_length=100
+        )
+        self.add_item(self.title_input)
+
+        self.description_input = TextInput(
+            label="Event Description",
+            placeholder="Describe your event...",
+            required=True,
+            style=discord.TextStyle.paragraph,
+            max_length=1000
+        )
+        self.add_item(self.description_input)
+
+        self.faction_input = TextInput(
+            label="Faction (Order or Destruction)",
+            placeholder="Type: Order or Destruction",
+            required=True,
+            max_length=20
+        )
+        self.add_item(self.faction_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # Validate faction
+        faction = self.faction_input.value.strip().title()
+        if faction not in ["Order", "Destruction"]:
+            await interaction.response.send_message(
+                "❌ Invalid faction! Please enter 'Order' or 'Destruction'.",
+                ephemeral=True
+            )
+            return
+
+        # Show next modal for date/time/duration/timezone
+        modal = EventCreationStep2Modal(
+            self.cog_instance,
+            self.title_input.value,
+            self.description_input.value,
+            faction
+        )
+
+        # Need to send a message first, then show the modal via a button
+        view = NextStepButtonView(modal)
+        await interaction.response.send_message(
+            "✅ Event details saved! Click 'Next' to set date and time. This need to be done within 5 minutes or the event is not created!",
+            view=view,
+            ephemeral=True
+        )
+        # This allows the on_timeout method to find and edit the message later
+        view.message = await interaction.original_response()
+
+
+class NextStepButtonView(View):
+    """View with a Next button to open the next modal"""
+    def __init__(self, next_modal):
+        super().__init__(timeout=300)
+        self.next_modal = next_modal
+
+        button = discord.ui.Button(
+            label="Next",
+            style=discord.ButtonStyle.primary,
+            emoji="▶️"
+        )
+        button.callback = self.open_modal
+        self.add_item(button)
+
+    async def open_modal(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(self.next_modal)
+
+    async def on_timeout(self):
+        """Called when the view times out (5 minutes)"""
+        # Disable all buttons when timeout occurs
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            await self.message.edit(view=self)
+
+
+class EventCreationStep2Modal(Modal):
+    """Step 2: Date, Time, Duration, Timezone"""
+
+    def __init__(self, cog_instance, title: str, description: str, faction: str):
+        super().__init__(title="Create Event - Date & Time", timeout=300)
+        self.cog_instance = cog_instance
+        self.event_title = title
+        self.event_description = description
+        self.faction = faction
+
+        self.date_input = TextInput(
+            label="Date (YYYY-MM-DD)",
+            placeholder="e.g., 2026-01-15",
+            required=True,
+            max_length=10
+        )
+        self.add_item(self.date_input)
+
+        self.time_input = TextInput(
+            label="Time (HH:MM, 24-hour format)",
+            placeholder="e.g., 19:30",
+            required=True,
+            max_length=5
+        )
+        self.add_item(self.time_input)
+
+        self.duration_input = TextInput(
+            label="Duration (in minutes)",
+            placeholder="e.g., 120 for 2 hours",
+            required=True,
+            max_length=4,
+            default="120"
+        )
+        self.add_item(self.duration_input)
+
+        self.timezone_input = TextInput(
+            label="Timezone",
+            placeholder="e.g., Europe/Stockholm, America/New_York, UTC",
+            required=True,
+            max_length=50,
+            default="UTC"
+        )
+        self.add_item(self.timezone_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # Validate duration
+        try:
+            duration = int(self.duration_input.value)
+            if duration <= 0 or duration > 1440:
+                raise ValueError()
+        except ValueError:
+            await interaction.response.send_message(
+                "❌ Invalid duration! Must be between 1 and 1440 minutes.",
+                ephemeral=True
+            )
+            return
+
+        date = self.date_input.value.strip()
+        time = self.time_input.value.strip()
+        timezone = self.timezone_input.value.strip()
+
+        # Parse and validate the datetime
+        try:
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+            naive_datetime_str = f"{date} {time}"
+            naive_dt = datetime.strptime(naive_datetime_str, "%Y-%m-%d %H:%M")
+            user_tz = ZoneInfo(timezone)
+            aware_dt = naive_dt.replace(tzinfo=user_tz)
+            timestamp = int(aware_dt.timestamp())
+
+        except (ValueError, ZoneInfoNotFoundError) as e:
+            if isinstance(e, ZoneInfoNotFoundError):
+                await interaction.response.send_message(
+                    f"❌ Invalid timezone '{timezone}'. Try 'UTC', 'Europe/Stockholm', or 'America/New_York'.",
+                    ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    "❌ Invalid date/time format! Use YYYY-MM-DD for date and HH:MM for time.",
+                    ephemeral=True
+                )
+            return
+
+        # Get organizer and guild info
+        organizer = interaction.user
+        guild = interaction.guild
+        channel = interaction.channel
+
+        # Create the event
+        event_data = {
+            'title': self.event_title,
+            'description': self.event_description,
+            'organizer_id': organizer.id,
+            'organizer_name': organizer.display_name,
+            'organizer_avatar': organizer.display_avatar.url,
+            'signups': [],
+            'faction': self.faction,
+            'time': timestamp,
+            'duration': duration,
+            'guild': guild.id,
+            'channel': channel.id,
+            'has_announced': False
+        }
+
+        embed = create_event_embed(event_data, guild)
+        view = EventView(
+            organizer.id,
+            self.cog_instance.events,
+            self.faction,
+            guild,
+            self.cog_instance
+        )
+
+        # Send the event message to the original channel
+        sent_message = await channel.send(embed=embed, view=view)
+
+        # Save the event
+        self.cog_instance.events[str(sent_message.id)] = event_data
+        with open('warhammer_events.json', 'w') as file:
+            json.dump(self.cog_instance.events, file, indent=4)
+
+        # Confirm to the user
+        await interaction.response.send_message(
+            f"✅ Event **{self.event_title}** created successfully!\n📅 {date} at {time} ({timezone})",
+            ephemeral=True
+        )
+
+
+# ============================================
+# Cancel Event with Dropdown
+# ============================================
+
+class CancelEventView(View):
+    """View for selecting which event to cancel"""
+
+    def __init__(self, user_id: int, events: dict):
+        super().__init__(timeout=300)
+
+        # Filter events where user is the organizer
+        user_events = {
+            msg_id: event for msg_id, event in events.items()
+            if event['organizer_id'] == user_id
+        }
+
+        if not user_events:
+            return
+
+        # Create dropdown options (max 25)
+        options = []
+        for msg_id, event in list(user_events.items())[:25]:
+            # Format timestamp for display
+            event_time = datetime.fromtimestamp(event['time'], tz=timezone.utc)
+            time_str = event_time.strftime('%Y-%m-%d %H:%M')
+
+            options.append(
+                discord.SelectOption(
+                    label=event['title'][:100],  # Discord limit
+                    value=msg_id,
+                    description=f"{event['faction']} - {time_str} UTC"
+                )
+            )
+
+        self.event_select = Select(
+            placeholder="Select event to cancel",
+            options=options
+        )
+        self.event_select.callback = self.cancel_callback
+        self.add_item(self.event_select)
+
+        self.events = events
+
+    async def cancel_callback(self, interaction: discord.Interaction):
+        message_id = self.event_select.values[0]
+
+        if message_id not in self.events:
+            await interaction.response.send_message(
+                "Event not found.",
+                ephemeral=True
+            )
+            return
+
+        event = self.events[message_id]
+
+        # Delete the event message
+        try:
+            channel = interaction.guild.get_channel(event['channel'])
+            message = await channel.fetch_message(int(message_id))
+            await message.delete()
+        except:
+            pass
+
+        # Remove from events dict
+        title = event['title']
+        self.events.pop(message_id)
+
+        with open('warhammer_events.json', 'w') as f:
+            json.dump(self.events, f, indent=4)
+
+        await interaction.response.send_message(
+            f"✅ Event cancelled: **{title}**",
+            ephemeral=True
+        )
+
+
+# ============================================
+# Accept/Reject Signup with Dropdowns
+# ============================================
+
+class AcceptSignupView(View):
+    """View for selecting event and member to accept"""
+
+    def __init__(self, user_id: int, events: dict, cog_instance):
+        super().__init__(timeout=300)
+        self.cog_instance = cog_instance
+        self.events = events
+        self.user_id = user_id
+
+        # Filter events where user is the organizer
+        user_events = {
+            msg_id: event for msg_id, event in events.items()
+            if event['organizer_id'] == user_id
+        }
+
+        if not user_events:
+            return
+
+        # Create event dropdown
+        options = []
+        for msg_id, event in list(user_events.items())[:25]:
+            event_time = datetime.fromtimestamp(event['time'], tz=timezone.utc)
+            time_str = event_time.strftime('%Y-%m-%d %H:%M')
+
+            options.append(
+                discord.SelectOption(
+                    label=event['title'][:100],
+                    value=msg_id,
+                    description=f"{event['faction']} - {time_str} UTC"
+                )
+            )
+
+        self.event_select = Select(
+            placeholder="Select event",
+            options=options,
+            row=0
+        )
+        self.event_select.callback = self.event_callback
+        self.add_item(self.event_select)
+
+        self.selected_event_id = None
+
+    async def event_callback(self, interaction: discord.Interaction):
+        self.selected_event_id = self.event_select.values[0]
+        event = self.events[self.selected_event_id]
+
+        # Get pending signups
+        possible_candidates = [s for s in event['signups'] if s['status'] == 'Pending' or s['status'] == 'Rejected']
+
+        if not possible_candidates:
+            await interaction.response.send_message(
+                "No pending signups for this event.",
+                ephemeral=True
+            )
+            return
+
+        # Create member dropdown
+        member_options = []
+        for signup in possible_candidates[:25]:
+            member_options.append(
+                discord.SelectOption(
+                    label=signup['user_name'],
+                    value=str(signup['user_id']),
+                    description=f"{signup['career']['name']} - {signup.get('character_name', 'No name')}"
+                )
+            )
+
+        member_select = Select(
+            placeholder="Select member to accept",
+            options=member_options,
+            row=1
+        )
+        member_select.callback = self.accept_callback
+
+        # Create new view with member dropdown
+        new_view = View(timeout=300)
+        new_view.add_item(member_select)
+        new_view.events = self.events
+        new_view.selected_event_id = self.selected_event_id
+        new_view.cog_instance = self.cog_instance
+
+        await interaction.response.send_message(
+            "Now select the member to accept:",
+            view=new_view,
+            ephemeral=True
+        )
+
+    async def accept_callback(self, interaction: discord.Interaction):
+        user_id = int(interaction.data['values'][0])
+        event = self.events[self.selected_event_id]
+
+        # Update signup status
+        for signup in event['signups']:
+            if signup['user_id'] == user_id:
+                signup['status'] = 'Accepted'
+                break
+
+        # Update event message
+        channel = interaction.guild.get_channel(event['channel'])
+        message = await channel.fetch_message(int(self.selected_event_id))
+        await self.cog_instance.update_event_embed(message, event)
+
+        with open('warhammer_events.json', 'w') as f:
+            json.dump(self.events, f, indent=4)
+
+        await interaction.response.send_message(
+            "✅ Signup accepted!",
+            ephemeral=True
+        )
+
+
+class RejectSignupView(View):
+    """View for selecting event and member to reject"""
+
+    def __init__(self, user_id: int, events: dict, cog_instance):
+        super().__init__(timeout=300)
+        self.cog_instance = cog_instance
+        self.events = events
+        self.user_id = user_id
+
+        # Filter events where user is the organizer
+        user_events = {
+            msg_id: event for msg_id, event in events.items()
+            if event['organizer_id'] == user_id
+        }
+
+        if not user_events:
+            return
+
+        # Create event dropdown
+        options = []
+        for msg_id, event in list(user_events.items())[:25]:
+            event_time = datetime.fromtimestamp(event['time'], tz=timezone.utc)
+            time_str = event_time.strftime('%Y-%m-%d %H:%M')
+
+            options.append(
+                discord.SelectOption(
+                    label=event['title'][:100],
+                    value=msg_id,
+                    description=f"{event['faction']} - {time_str} UTC"
+                )
+            )
+
+        self.event_select = Select(
+            placeholder="Select event",
+            options=options,
+            row=0
+        )
+        self.event_select.callback = self.event_callback
+        self.add_item(self.event_select)
+
+        self.selected_event_id = None
+
+    async def event_callback(self, interaction: discord.Interaction):
+        self.selected_event_id = self.event_select.values[0]
+        event = self.events[self.selected_event_id]
+
+        # Get pending signups
+        possible_candidates = [s for s in event['signups'] if s['status'] == 'Pending' or s['status'] == 'Accepted']
+
+        if not possible_candidates:
+            await interaction.response.send_message(
+                "No pending signups for this event.",
+                ephemeral=True
+            )
+            return
+
+        # Create member dropdown
+        member_options = []
+        for signup in possible_candidates[:25]:
+            member_options.append(
+                discord.SelectOption(
+                    label=signup['user_name'],
+                    value=str(signup['user_id']),
+                    description=f"{signup['career']['name']} - {signup.get('character_name', 'No name')}"
+                )
+            )
+
+        member_select = Select(
+            placeholder="Select member to reject",
+            options=member_options,
+            row=1
+        )
+        member_select.callback = self.reject_callback
+
+        # Create new view with member dropdown
+        new_view = View(timeout=300)
+        new_view.add_item(member_select)
+        new_view.events = self.events
+        new_view.selected_event_id = self.selected_event_id
+        new_view.cog_instance = self.cog_instance
+
+        await interaction.response.send_message(
+            "Now select the member to reject:",
+            view=new_view,
+            ephemeral=True
+        )
+
+    async def reject_callback(self, interaction: discord.Interaction):
+        user_id = int(interaction.data['values'][0])
+        event = self.events[self.selected_event_id]
+
+        # Update signup status
+        for signup in event['signups']:
+            if signup['user_id'] == user_id:
+                signup['status'] = 'Rejected'
+                break
+
+        # Update event message
+        channel = interaction.guild.get_channel(event['channel'])
+        message = await channel.fetch_message(int(self.selected_event_id))
+        await self.cog_instance.update_event_embed(message, event)
+
+        with open('warhammer_events.json', 'w') as f:
+            json.dump(self.events, f, indent=4)
+
+        await interaction.response.send_message(
+            "✅ Signup rejected!",
+            ephemeral=True
+        )
+
+
 def generate_ics_file(event: dict) -> io.BytesIO:
     """Generate an iCalendar (.ics) file for an event"""
 
@@ -57,9 +573,9 @@ def generate_ics_file(event: dict) -> io.BytesIO:
     # Format datetime for iCalendar (format: YYYYMMDDTHHMMSSZ)
     dtstart = event_dt.strftime('%Y%m%dT%H%M%SZ')
 
-    # Calculate end time (assume 2 hours duration)
-    # TODO: make this configurable
-    end_dt = datetime.fromtimestamp(event['time'] + 7200, tz=timezone.utc)
+    # Calculate end time using the event's duration (in minutes)
+    duration_seconds = event.get('duration', 120) * 60
+    end_dt = datetime.fromtimestamp(event['time'] + duration_seconds, tz=timezone.utc)
     dtend = end_dt.strftime('%Y%m%dT%H%M%SZ')
 
     # Create timestamp for when the file was created
@@ -114,7 +630,7 @@ class CalendarButton(discord.ui.Button):
             style=discord.ButtonStyle.primary,
             emoji="📅",
             custom_id="download_calendar",
-            row=3  # Place it on a separate row
+            row=3
         )
         self.events = event_dict
 
@@ -176,7 +692,6 @@ class MemberOrIdTransformer(app_commands.Transformer):
     def type(self) -> discord.AppCommandOptionType:
         """Specify that this accepts string input for proper autocomplete"""
         return discord.AppCommandOptionType.string
-
 
 class CharacterNameModal(Modal):
     """Modal dialog for entering character name"""
@@ -486,232 +1001,65 @@ class WarhammerEvents(commands.Cog):
         """waits until bot is read before starting the loop"""
         await self.bot.wait_until_ready()
 
-    @discord.app_commands.command(name="cancel_ror_event", description="Cancel an event")
-    async def remove_event_cancellation(self, interaction: discord.Interaction, message_id: str):
-        """Cancel an event"""
-        if not message_id.isdigit():
-            await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
-            return
-
-        if message_id not in self.events:
-            await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
-            return
-
-        event = self.events[message_id]
-        if event['organizer_id'] != interaction.user.id:
-            await interaction.response.send_message("You are not the owner of this event.", ephemeral=True)
-            return
-
-        await interaction.response.defer()
-        await (await interaction.channel.fetch_message(int(message_id))).delete()
-        title = event['title']
-        self.events.pop(message_id)
-        with open('warhammer_events.json', 'w') as f:
-            json.dump(self.events, f, indent=4)
-        await interaction.followup.send(f"Event cancelled: {title}", ephemeral=True)
-
     @discord.app_commands.command(name="create_ror_event", description="Create a new Warhammer Online event.")
-    @discord.app_commands.describe(title="The name of the event", description="Description for the event", faction="What faction the event is for", date="Date for the event (YYYY-MM-DD)", time="Time of event (HH:MM)", timezone="Your timezone (I.E. 'Europe/Stockholm')")
-    async def create_event(
-        self,
-        interaction: discord.Interaction,
-        title: str,
-        description: str,
-        faction: Literal['Destruction', 'Order'],
-        date: str,
-        time: str,
-        timezone: str
-    ):
-        """Creates a new Warhammer Online event with an interactive sign-up embed."""
-        try:
-            naive_datetime_str = f"{date} {time}"
-            naive_dt = datetime.strptime(naive_datetime_str, "%Y-%m-%d %H:%M")
-            user_tz = ZoneInfo(timezone)
-            aware_dt = naive_dt.replace(tzinfo=user_tz)
-            timestamp = int(aware_dt.timestamp())
-        except (ValueError, ZoneInfoNotFoundError) as e:
-            error_message = ""
-            if isinstance(e, ValueError):
-                error_message = "❌ **Invalid Format!** Please use `YYYY-MM-DD` for the date and `HH:MM` for the time."
-            elif isinstance(e, ZoneInfoNotFoundError):
-                error_message = f"❌ **Invalid Timezone!** I couldn't find the timezone `{timezone}`. Please use a valid TZ identifier like 'Europe/London' or 'America/Los_Angeles'."
-            await interaction.response.send_message(error_message, ephemeral=True)
+    async def create_event(self, interaction: discord.Interaction):
+        """Opens event creation modal."""
+        modal = EventCreationStep1Modal(self)
+        await interaction.response.send_modal(modal)
+
+    @discord.app_commands.command(name="cancel_ror_event", description="Cancel an event")
+    async def remove_event_cancellation(self, interaction: discord.Interaction):
+        """Cancel an event using dropdown selection"""
+        view = CancelEventView(interaction.user.id, self.events)
+
+        if not view.children:
+            await interaction.response.send_message(
+                "You have no events to cancel.",
+                ephemeral=True
+            )
             return
 
-        organizer = interaction.user
-
-        event_data = {
-            'title': title,
-            'description': description,
-            'organizer_id': organizer.id,
-            'organizer_name': organizer.display_name,
-            'organizer_avatar': organizer.display_avatar.url,
-            'signups': [],
-            'faction': faction,
-            'time': timestamp,
-            'guild': interaction.guild.id,
-            'channel': interaction.channel.id,
-            'has_announced': False
-        }
-
-        embed = create_event_embed(event_data, interaction.guild)
-        view = EventView(organizer.id, self.events, faction, interaction.guild, self)
-
-        await interaction.response.defer()
-        sent_message = await interaction.followup.send(embed=embed, view=view)
-        
-        self.events[str(sent_message.id)] = event_data
-        with open('warhammer_events.json', 'w') as file:
-            json.dump(self.events, file, indent=4)
-
+        await interaction.response.send_message(
+            "Select an event to cancel:",
+            view=view,
+            ephemeral=True
+        )
 
     @discord.app_commands.command(name="accept_ror_signup", description="Accept a sign-up for an event.")
-    @discord.app_commands.describe(
-        user="Select a user from the list or type their user ID",
-        message_id="The message ID of the event"
-    )
-    async def accept_signup(
-            self,
-            interaction: discord.Interaction,
-            user: str,  # Accept as string to handle both cases
-            message_id: str
-    ):
-        """Accepts a user's sign-up for a specified event."""
-        if not message_id.isdigit():
-            await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
+    async def accept_signup(self, interaction: discord.Interaction):
+        """Accept a user's sign-up using dropdown selection"""
+        view = AcceptSignupView(interaction.user.id, self.events, self)
+
+        if not view.children:
+            await interaction.response.send_message(
+                "You have no events to manage.",
+                ephemeral=True
+            )
             return
 
-        if message_id not in self.events:
-            await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
-            return
-
-        event = self.events[message_id]
-
-        if interaction.user.id != event['organizer_id']:
-            await interaction.response.send_message("You are not the organizer of this event.", ephemeral=True)
-            return
-
-        # Parse the user input - could be a mention or an ID
-        user_id = None
-        if user.startswith('<@') and user.endswith('>'):
-            # It's a mention format
-            user_id_str = user.strip('<@!>')
-            if user_id_str.isdigit():
-                user_id = int(user_id_str)
-        elif user.isdigit():
-            # It's a direct ID
-            user_id = int(user)
-
-        if user_id is None:
-            await interaction.response.send_message("Invalid user format. Please mention a user or provide their ID.",
-                                                    ephemeral=True)
-            return
-
-        # Try to fetch the member for display name
-        try:
-            member = await interaction.guild.fetch_member(user_id)
-            user_display_name = member.display_name
-        except discord.NotFound:
-            user_display_name = f"User ID {user_id}"
-
-        for signup in event['signups']:
-            if signup['user_id'] == user_id:
-                signup['status'] = 'Accepted'
-                message = await interaction.channel.fetch_message(int(message_id))
-                await self.update_event_embed(message, event)
-                with open('warhammer_events.json', 'w') as f:
-                    json.dump(self.events, f, indent=4)
-                await interaction.response.send_message(f"Accepted {user_display_name}'s sign-up.", ephemeral=True)
-                return
-
-        await interaction.response.send_message(f"{user_display_name} is not in the sign-up list.", ephemeral=True)
-
+        await interaction.response.send_message(
+            "Select an event:",
+            view=view,
+            ephemeral=True
+        )
 
     @discord.app_commands.command(name="reject_ror_signup", description="Reject a sign-up for an event.")
-    @discord.app_commands.describe(
-        user="Select a user from the list or type their user ID",
-        message_id="The message ID of the event"
-    )
-    async def reject_signup(
-            self,
-            interaction: discord.Interaction,
-            user: str,  # Accept as string to handle both cases
-            message_id: str
-    ):
-        """Rejects a user's sign-up for a specified event."""
-        if not message_id.isdigit():
-            await interaction.response.send_message("Invalid message ID. Please provide a numeric ID.", ephemeral=True)
+    async def reject_signup(self, interaction: discord.Interaction):
+        """Reject a user's sign-up using dropdown selection"""
+        view = RejectSignupView(interaction.user.id, self.events, self)
+
+        if not view.children:
+            await interaction.response.send_message(
+                "You have no events to manage.",
+                ephemeral=True
+            )
             return
 
-        if message_id not in self.events:
-            await interaction.response.send_message("Event not found. Please check the message ID.", ephemeral=True)
-            return
-
-        event = self.events[message_id]
-
-        if interaction.user.id != event['organizer_id']:
-            await interaction.response.send_message("You are not the organizer of this event.", ephemeral=True)
-            return
-
-        # Parse the user input - could be a mention or an ID
-        user_id = None
-        if user.startswith('<@') and user.endswith('>'):
-            # It's a mention format
-            user_id_str = user.strip('<@!>')
-            if user_id_str.isdigit():
-                user_id = int(user_id_str)
-        elif user.isdigit():
-            # It's a direct ID
-            user_id = int(user)
-
-        if user_id is None:
-            await interaction.response.send_message("Invalid user format. Please mention a user or provide their ID.",
-                                                    ephemeral=True)
-            return
-
-        # Try to fetch the member for display name
-        try:
-            member = await interaction.guild.fetch_member(user_id)
-            user_display_name = member.display_name
-        except discord.NotFound:
-            user_display_name = f"User ID {user_id}"
-
-        for signup in event['signups']:
-            if signup['user_id'] == user_id:
-                signup['status'] = 'Rejected'
-                message = await interaction.channel.fetch_message(int(message_id))
-                await self.update_event_embed(message, event)
-                with open('warhammer_events.json', 'w') as f:
-                    json.dump(self.events, f, indent=4)
-                await interaction.response.send_message(f"Rejected {user_display_name}'s sign-up.", ephemeral=True)
-                return
-
-        await interaction.response.send_message(f"{user_display_name} is not in the sign-up list.", ephemeral=True)
-
-
-    # Add this autocomplete function to the WarhammerEvents class
-    @accept_signup.autocomplete('user')
-    @reject_signup.autocomplete('user')
-    async def user_autocomplete(
-            self,
-            interaction: discord.Interaction,
-            current: str,
-    ) -> list[app_commands.Choice[str]]:
-        """Provide autocomplete suggestions for users"""
-        # Get all members in the guild
-        members = interaction.guild.members
-
-        # Filter members based on what the user is typing
-        filtered = [
-            member for member in members
-            if current.lower() in member.display_name.lower() or current.lower() in member.name.lower()
-        ][:25]  # Discord limits to 25 choices
-
-        return [
-            app_commands.Choice(name=member.display_name, value=str(member.id))
-            for member in filtered
-        ]
-
+        await interaction.response.send_message(
+            "Select an event:",
+            view=view,
+            ephemeral=True
+        )
 
 async def setup(bot: commands.Bot):
     """Loads the cog"""
