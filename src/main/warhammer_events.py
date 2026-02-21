@@ -325,7 +325,7 @@ class CancelEventView(View):
         try:
             channel = interaction.guild.get_channel(event['channel'])
             message = await channel.fetch_message(int(message_id))
-            await message.delete()
+            await message.edit(content=f"Event with name: {event['title']} and time: <t:{event['time']}:F> has been cancelled!")
         except:
             pass
 
