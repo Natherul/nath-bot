@@ -951,6 +951,14 @@ class WarhammerEvents(commands.Cog):
         for message_id, event_data in self.events.items():
             if event_data.get("time", 0) < current_utc_timestamp:
                 events_to_remove.append(message_id)
+                # if possible try and edit message
+                try:
+                    guild = self.bot.get_guild(event_data['guild'])
+                    channel = guild.get_channel(event_data['channel'])
+                    message = await channel.fetch_message(int(message_id))
+                    await message.edit(view=None)
+                except Exception as e:
+                    logging.warning(f"Failed to edit message {message_id}: {e}")
 
         if events_to_remove:
             for message_id in events_to_remove:
