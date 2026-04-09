@@ -1,3 +1,5 @@
+[REPO MOVED](https://gitlab.com/Natherul/nath-bot)
+
 # Nath-bot
 
 A Discord bot for Warhammer Online: Age of Reckoning (WoAOR) that monitors game events and provides server management features.
